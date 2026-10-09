@@ -1,0 +1,9 @@
+// 라이브러리 모듈 (Spring 앱 아님) — 노드가 제공하는 약속. FairChain과 다른 노드가 import
+plugins { id 'java-library' }
+
+dependencies {
+    api platform('org.springframework.boot:spring-boot-dependencies:3.3.5')
+
+    // 인터페이스의 매핑 애너테이션
+    api 'org.springframework:spring-web'
+}
