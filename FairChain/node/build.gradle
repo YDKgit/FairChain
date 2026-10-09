@@ -1,0 +1,8 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+dependencies {
+    implementation project(':node-api')
+    implementation project(':fairchain-api')   // 공용 HttpRequester 사용
+}

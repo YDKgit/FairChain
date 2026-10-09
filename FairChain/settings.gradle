@@ -1,0 +1,7 @@
+rootProject.name = 'FairChain'
+
+include 'fairchain-api'    // FairChain이 제공하는 약속 (인터페이스 · DTO · HttpRequester · RecordHasher)
+include 'node-api'         // 노드가 제공하는 약속
+include 'example-server'   // 예제서버 (콘서트 예매 사이트)
+include 'fairchain'        // FairChain 서버
+include 'node'             // 노드 서버 (같은 코드로 3대 실행)
