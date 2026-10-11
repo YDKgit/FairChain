@@ -1,0 +1,12 @@
+server:
+  port: ${NODE_PORT:8081}
+spring:
+  datasource:
+    url: jdbc:h2:file:${NODE_DB:./data/node1};DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+node:
+  peers: ${NODE_PEERS:http://localhost:8082,http://localhost:8083}
+  secret: ${NODE_SECRET:local-demo-change-me}

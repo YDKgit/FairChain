@@ -1,0 +1,13 @@
+server:
+  port: ${FAIRCHAIN_PORT:8080}
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/fairchain;DB_CLOSE_ON_EXIT=FALSE
+  jpa:
+    hibernate:
+      ddl-auto: update
+blockchain:
+  nodes: ${NODE_URLS:http://localhost:8081,http://localhost:8082,http://localhost:8083}
+  secret: ${NODE_SECRET:local-demo-change-me}
+demo:
+  client-api-key: ${DEMO_API_KEY:}
