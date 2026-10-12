@@ -2,14 +2,12 @@ server:
   port: ${NODE_PORT:9001}          # 노드 3대: 9001 · 9002 · 9003 (FairChain은 8081)
 spring:
   datasource:
-    # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 확정 블록 · 표가 남는다
+    # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 저장한 블록이 남는다
     url: jdbc:h2:file:${NODE_DB:./data/node1};WRITE_DELAY=0;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: update
 node:
-  peers: ${NODE_PEERS:http://localhost:9002,http://localhost:9003}
   secret: ${NODE_SECRET:local-demo-change-me}   # FairChain fairchain.nodes.api-key와 같은 값
-  peer-timeout-ms: ${NODE_PEER_TIMEOUT_MS:800}    # 노드 ↔ 노드 호출 제한 (FairChain의 노드 호출 제한 2초보다 짧게)
-  sync-interval-ms: ${NODE_SYNC_INTERVAL_MS:5000} # 주기 점검: 체인 검사 · 뒤처진 블록 따라잡기 · 남은 제안 마무리
+  audit-interval-ms: ${NODE_AUDIT_INTERVAL_MS:5000}   # 체인 전체 무결성 검사 주기
