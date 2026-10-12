@@ -1,0 +1,16 @@
+# 견본 — 복사해서 application-local.yml로 만들고 실행: --spring.profiles.active=local
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/fairchain?serverTimezone=Asia/Seoul
+    username: fairchain
+    password: 비밀번호
+
+fairchain:
+  nodes:
+    api-key: 노드인증키
+  # 처음 실행할 때 고객사 · 운영자 계정을 만들어 둠 (이미 있으면 건너뜀)
+  seed:
+    client-id: example-server
+    api-key: 고객사APIKey
+    operator-login-id: admin
+    operator-password: 운영자비밀번호
