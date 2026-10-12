@@ -21,6 +21,10 @@ class NodeServiceTest {
   String blockHash=hash.hash(Long.toString(index),prev,key,Long.toString(version),digest,Long.toString(timestamp));
   return new Block(index,prev,key,version,digest,LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp),ZoneOffset.UTC),blockHash);
  }
+ /** 체인 전체 검사가 읽는 묶음 조회를 준비한다 */
+ private void chain(Block... blocks) {
+  when(repo.findByBlockIndexGreaterThanEqualOrderByBlockIndexAsc(eq(1L),any())).thenReturn(List.of(blocks));
+ }
  @Test void replayOfAlreadyCommittedProposalIsIdempotent() {
   Block committed=block(1,ZERO,KEY,1,RECORD,1000);
   when(repo.findById(1L)).thenReturn(Optional.of(committed));
@@ -61,6 +65,7 @@ class NodeServiceTest {
   when(repo.findTopByRecordKeyOrderByBlockIndexDesc(KEY)).thenReturn(Optional.of(b));
   when(repo.findTopByOrderByBlockIndexDesc()).thenReturn(Optional.of(b));
   when(repo.findById(1L)).thenReturn(Optional.of(b));
+  chain(b);
   assertTrue(service.verify(new BlockVerifyDto(KEY,1L,RECORD)).valid());
   assertFalse(service.verify(new BlockVerifyDto(KEY,2L,RECORD)).valid());
   assertFalse(service.verify(new BlockVerifyDto(KEY,1L,"c".repeat(64))).valid());
@@ -73,6 +78,7 @@ class NodeServiceTest {
   when(repo.findTopByOrderByBlockIndexDesc()).thenReturn(Optional.of(second));
   when(repo.findById(1L)).thenReturn(Optional.of(first));
   when(repo.findById(2L)).thenReturn(Optional.of(second));
+  chain(first,second);
   assertFalse(service.verify(new BlockVerifyDto(second.recordKey,1L,second.recordHash)).valid());
  }
  @Test void detectsMissingPredecessorAndBatchMismatch() {
@@ -80,6 +86,7 @@ class NodeServiceTest {
   when(repo.findTopByOrderByBlockIndexDesc()).thenReturn(Optional.of(b));
   when(repo.findById(1L)).thenReturn(Optional.empty());
   when(repo.findById(2L)).thenReturn(Optional.of(b));
+  chain(b);
   var result=service.batch(new BlockBatchVerifyRequestDto(List.of(new BlockVerifyItemDto(2L,KEY,1L,RECORD))));
   assertTrue(result.results().get(0).matched());
   assertFalse(result.results().get(0).confirmed());
@@ -92,6 +99,7 @@ class NodeServiceTest {
   when(repo.findTopByOrderByBlockIndexDesc()).thenReturn(Optional.of(second));
   when(repo.findById(1L)).thenReturn(Optional.of(first));
   when(repo.findById(2L)).thenReturn(Optional.of(second));
+  chain(first,second);
   assertFalse(service.verify(new BlockVerifyDto(KEY,1L,RECORD)).valid());
  }
  @Test void malformedBatchRecordDoesNotThrow() {

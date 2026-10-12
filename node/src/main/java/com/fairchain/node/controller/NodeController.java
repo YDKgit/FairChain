@@ -17,4 +17,5 @@ import org.springframework.web.bind.annotation.*;
  @Override public BlockBatchVerifyResponseDto verifyBatch(BlockBatchVerifyRequestDto dto){return service.batch(dto);}
  @Override public boolean receiveProposal(BlockProposalDto dto){return service.propose(dto);}
  @Override public boolean confirmBlock(Long blockIndex,String blockHash){return service.confirm(blockIndex,blockHash);}
+ @Override public java.util.List<BlockProposalDto> blocks(Long fromIndex,int limit){return service.blocks(fromIndex,limit);}
 }
