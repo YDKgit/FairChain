@@ -1,13 +1,37 @@
+# FairChain 서버 — 비밀값은 환경변수 또는 application-local.yml(.gitignore)로
 server:
-  port: ${FAIRCHAIN_PORT:8080}
+  port: 8081
+
 spring:
+  profiles:
+    default: local              # 프로필을 따로 안 주면 application-local.yml 사용 (없으면 무시)
   datasource:
-    url: jdbc:h2:file:./data/fairchain;DB_CLOSE_ON_EXIT=FALSE
+    url: ${DB_URL:jdbc:mysql://localhost:3306/fairchain?serverTimezone=Asia/Seoul}
+    username: ${DB_USERNAME:fairchain}
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
-blockchain:
-  nodes: ${NODE_URLS:http://localhost:8081,http://localhost:8082,http://localhost:8083}
-  secret: ${NODE_SECRET:local-demo-change-me}
-demo:
-  client-api-key: ${DEMO_API_KEY:}
+    open-in-view: false
+  data:
+    redis:
+      repositories:
+        enabled: false          # Redis는 StringRedisTemplate으로 직접 사용 (Repository 스캔 안 함)
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+fairchain:
+  queue:
+    admit-per-second: 10        # 1초마다 입장 허용 인원 (SD-202-03)
+    admission-ttl: 5m           # 입장 권한 유지 시간
+  rate-limit:
+    per-second: 5               # 회원 1명의 초당 요청 한도 (매크로 차단)
+    idempotency-ttl: 10m
+  scheduling:
+    enabled: true
+  nodes:
+    urls: http://localhost:9001,http://localhost:9002,http://localhost:9003
+    api-key: ${NODE_API_KEY:}
+    timeout: 2s
+  block:
+    process-interval-ms: 500    # 블록 기록 대기 줄 처리 주기

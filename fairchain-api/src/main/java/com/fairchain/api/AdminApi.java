@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface AdminApi {
 
     String KEYS = "/api/admin/keys";
-    String ISSUE_SEATS = "/api/admin/seats";
+    String ISSUE_SEATS = "/api/admin/seats/issue";
 
     @GetMapping(KEYS)
     ApiKeyDto getKeys();

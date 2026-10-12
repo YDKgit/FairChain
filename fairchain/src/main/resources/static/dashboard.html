@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FairChain 관제 대시보드</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .hidden { display: none; }
+  #error { color: #c00; }
+</style>
+</head>
+<body>
+<h1>FairChain 관제 대시보드</h1>
+
+<form id="login">
+  <input id="loginId" placeholder="운영자 아이디" required>
+  <input id="password" type="password" placeholder="비밀번호" required>
+  <button>로그인</button>
+  <p id="error"></p>
+</form>
+
+<section id="board" class="hidden">
+  <p>고객사: <b id="client"></b> · 1초마다 갱신</p>
+  <table>
+    <thead><tr><th>공연 ID</th><th>대기 인원</th><th>차단된 매크로</th><th>남은 좌석</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</section>
+
+<script>
+  // SD-605: 로그인 → 대시보드 토큰으로 SSE 구독
+  document.getElementById('login').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/dashboard/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        loginId: document.getElementById('loginId').value,
+        password: document.getElementById('password').value
+      })
+    });
+    if (!res.ok) {
+      document.getElementById('error').textContent = '로그인 실패';
+      return;
+    }
+    const { clientId, dashboardToken } = await res.json();
+    start(clientId, dashboardToken);
+  });
+
+  function start(clientId, token) {
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('board').classList.remove('hidden');
+    document.getElementById('client').textContent = clientId;
+    const source = new EventSource('/dashboard/subscribe?token=' + encodeURIComponent(token));
+    source.addEventListener('metrics', (e) => {
+      const rows = JSON.parse(e.data).map(m =>
+        `<tr><td>${m.eventId}</td><td>${m.waitingCount}</td><td>${m.blockedCount}</td><td>${m.remainingSlots}</td></tr>`);
+      document.getElementById('rows').innerHTML = rows.join('');
+    });
+  }
+</script>
+</body>
+</html>

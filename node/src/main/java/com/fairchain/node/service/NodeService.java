@@ -47,7 +47,7 @@ import java.util.regex.Pattern;
  private PendingBlock toPending(BlockProposalDto p) {return new PendingBlock(p.blockIndex(),p.prevBlockHash(),p.recordKey(),p.version(),p.recordHash(),p.timestamp(),p.blockHash());}
  private Block toEntity(BlockProposalDto p) {return new Block(p.blockIndex(),p.prevBlockHash(),p.recordKey(),p.version(),p.recordHash(),LocalDateTime.ofInstant(Instant.ofEpochMilli(p.timestamp()),ZoneOffset.UTC),p.blockHash());}
  private boolean peerPost(String peer,String path,Object body,Class<Boolean> result) {
- try { var request=http.post().uri(peer+path).header("X-Node-Secret",secret);
+ try { var request=http.post().uri(peer+path).header(com.fairchain.nodeapi.NodeHeaders.NODE_SECRET,secret);
  return Boolean.TRUE.equals((body==null ? request : request.body(body)).retrieve().body(result)); }
  catch(Exception e) {return false;}
  }
@@ -63,16 +63,16 @@ import java.util.regex.Pattern;
  var unsigned=new BlockProposalDto(next(),prev(),dto.recordKey(),dto.version(),dto.recordHash(),time,"");
  var prop=new BlockProposalDto(unsigned.blockIndex(),unsigned.prevBlockHash(),unsigned.recordKey(),unsigned.version(),unsigned.recordHash(),time,hash(unsigned));
  pendingRepo.saveAndFlush(toPending(prop));
- int votes=1;for(String peer:peers) if(peerPost(peer,"/node/consensus/proposals",prop,Boolean.class)) votes++;
+ int votes=1;for(String peer:peers) if(peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.PROPOSALS,prop,Boolean.class)) votes++;
  if(votes!=3) return new BlockResultDto(false,null); // strict 3/3 PREPARE
  // Persist a durable decision BEFORE notifying peers. If the process crashes,
  // recovery can safely redeliver precisely this decision, not invent a new block.
  if(!recordCommitDecision(prop.blockIndex(), prop.blockHash())) return new BlockResultDto(false,null);
  // Network acknowledgements are not atomic; recover will retry this decision.
  // Broadcast persisted COMMIT intent before asking each peer to apply it.
- for(String peer:peers) if(!peerPost(peer,"/node/consensus/blocks/"+prop.blockIndex()+"/decision?blockHash="+prop.blockHash(),null,Boolean.class))
+ for(String peer:peers) if(!peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.decisionPath(prop.blockIndex())+"?blockHash="+prop.blockHash(),null,Boolean.class))
   return new BlockResultDto(false,null);
- int confirmations=1;for(String peer:peers) if(peerPost(peer,"/node/consensus/blocks/"+prop.blockIndex()+"/confirm?blockHash="+prop.blockHash(),null,Boolean.class)) confirmations++;
+ int confirmations=1;for(String peer:peers) if(peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.confirmPath(prop.blockIndex())+"?blockHash="+prop.blockHash(),null,Boolean.class)) confirmations++;
  if(confirmations!=3) return new BlockResultDto(false,null);
  if(!confirm(prop.blockIndex(),prop.blockHash())) return new BlockResultDto(false,null);
  return new BlockResultDto(true,prop.blockIndex());
@@ -96,10 +96,10 @@ import java.util.regex.Pattern;
   // Re-propose to peers that may have missed the initial PREPARE. A peer which
   // already committed will reject PREPARE, but its idempotent CONFIRM can succeed.
   for(String peer:peers) {
-   peerPost(peer,"/node/consensus/proposals",proposal,Boolean.class);
-   if(!peerPost(peer,"/node/consensus/blocks/"+index+"/decision?blockHash="+expectedHash,null,Boolean.class))
+   peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.PROPOSALS,proposal,Boolean.class);
+   if(!peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.decisionPath(index)+"?blockHash="+expectedHash,null,Boolean.class))
     return new BlockResultDto(false,null);
-   if(!peerPost(peer,"/node/consensus/blocks/"+index+"/confirm?blockHash="+expectedHash,null,Boolean.class))
+   if(!peerPost(peer,com.fairchain.nodeapi.NodeConsensusApi.confirmPath(index)+"?blockHash="+expectedHash,null,Boolean.class))
     return new BlockResultDto(false,null);
   }
   if(!confirm(index,expectedHash)) return new BlockResultDto(false,null);

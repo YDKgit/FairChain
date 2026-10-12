@@ -14,21 +14,28 @@ import java.time.Duration;
 import java.util.function.Consumer;
 
 /**
- * HttpRequester 기본 구현. 모든 요청에 apiKey 헤더를 붙인다.
+ * HttpRequester 기본 구현. 모든 요청에 인증 헤더를 붙인다 (기본 X-API-KEY).
  * 사용하는 쪽에서 @Bean으로 등록: new RestHttpRequester("http://localhost:8081", apiKey, Duration.ofSeconds(3))
- * 노드 호출처럼 인증키가 없는 곳은 apiKey에 null을 넘긴다.
+ * 노드 호출은 헤더 이름을 바꿔서: new RestHttpRequester(url, NodeHeaders.NODE_SECRET, secret, timeout)
+ * 인증키가 없는 곳은 apiKey에 null을 넘긴다.
  */
 public class RestHttpRequester implements HttpRequester {
 
     private final RestClient restClient;
     private final String baseUrl;
+    private final String apiKeyHeader;
     private final String apiKey;
     private final Duration timeout;
     private final HttpClient sseClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RestHttpRequester(String baseUrl, String apiKey, Duration timeout) {
+        this(baseUrl, FairChainHeaders.API_KEY, apiKey, timeout);
+    }
+
+    public RestHttpRequester(String baseUrl, String apiKeyHeader, String apiKey, Duration timeout) {
         this.baseUrl = baseUrl;
+        this.apiKeyHeader = apiKeyHeader;
         this.apiKey = apiKey;
         this.timeout = timeout;
 
@@ -39,7 +46,7 @@ public class RestHttpRequester implements HttpRequester {
                 .baseUrl(baseUrl)
                 .requestFactory(factory);
         if (apiKey != null) {
-            builder.defaultHeader(FairChainHeaders.API_KEY, apiKey);
+            builder.defaultHeader(apiKeyHeader, apiKey);
         }
         this.restClient = builder.build();
         this.sseClient = HttpClient.newBuilder().connectTimeout(timeout).build();
@@ -67,7 +74,7 @@ public class RestHttpRequester implements HttpRequester {
                 .header("Accept", "text/event-stream")
                 .GET();
         if (apiKey != null) {
-            request.header(FairChainHeaders.API_KEY, apiKey);
+            request.header(apiKeyHeader, apiKey);
         }
         sseClient.sendAsync(request.build(), HttpResponse.BodyHandlers.ofLines())
                 .thenAccept(response -> response.body()
