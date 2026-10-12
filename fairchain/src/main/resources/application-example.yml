@@ -7,7 +7,7 @@ spring:
 
 fairchain:
   nodes:
-    api-key: 노드인증키
+    api-key: 노드인증키          # 노드 node.secret과 같은 값 (X-Node-Secret 헤더)
   # 처음 실행할 때 고객사 · 운영자 계정을 만들어 둠 (이미 있으면 건너뜀)
   seed:
     client-id: example-server

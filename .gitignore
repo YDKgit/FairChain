@@ -20,3 +20,6 @@ out/
 # 로그
 *.log
 logs/
+
+# 노드 · 데모용 H2 파일 DB
+data/
