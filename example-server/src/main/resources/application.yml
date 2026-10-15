@@ -1,0 +1,29 @@
+# 예제서버 (콘서트 예매 사이트) — FairChain API를 호출하는 고객사 서버
+server:
+  port: ${EXAMPLE_PORT:8080}
+
+spring:
+  datasource:
+    # 기본은 설치 없이 쓰는 H2 파일 DB. MySQL은 EXAMPLE_DB_URL · EXAMPLE_DB_USERNAME · EXAMPLE_DB_PASSWORD로
+    url: ${EXAMPLE_DB_URL:jdbc:h2:file:./data/example;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${EXAMPLE_DB_USERNAME:sa}
+    password: ${EXAMPLE_DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+example:
+  fairchain:
+    url: ${FAIRCHAIN_URL:http://localhost:8081}
+    api-key: ${FAIRCHAIN_API_KEY:}           # FairChain에 등록된 고객사 API Key (fairchain.seed.api-key와 같은 값)
+    client-id: ${FAIRCHAIN_CLIENT_ID:example-server}
+    timeout: 3s
+  offer-ttl: 3m                              # 재배정 제안 응답 기한
+  queue-enabled: ${EXAMPLE_QUEUE_ENABLED:true}   # false: 대기열 없이 바로 좌석 선택 (FairChain 대기열 · 입장 권한 확인 생략)
+  seed:                                      # 처음 실행할 때 만드는 계정 · 더미 공연 (이미 있으면 건너뜀)
+    operator-login-id: ${EXAMPLE_OPERATOR_ID:operator}
+    operator-password: ${EXAMPLE_OPERATOR_PASSWORD:}
+    staff-login-id: ${EXAMPLE_STAFF_ID:staff}
+    staff-password: ${EXAMPLE_STAFF_PASSWORD:}
+    concerts: true

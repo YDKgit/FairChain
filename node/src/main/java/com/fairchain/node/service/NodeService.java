@@ -5,6 +5,7 @@ import com.fairchain.node.entity.Block;
 import com.fairchain.node.repository.BlockRepository;
 import com.fairchain.nodeapi.dto.BlockBatchVerifyRequestDto;
 import com.fairchain.nodeapi.dto.BlockBatchVerifyResponseDto;
+import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.BlockProofDto;
 import com.fairchain.nodeapi.dto.BlockRecordDto;
 import com.fairchain.nodeapi.dto.BlockResultDto;
@@ -131,6 +132,17 @@ public class NodeService {
         return repo.findTopByRecordKeyOrderByBlockIndexDesc(recordKey)
                 .map(b -> new BlockProofDto(integrity(b), b.blockIndex, b.version, b.recordHash, b.blockHash))
                 .orElse(new BlockProofDto(false, null, null, null, null));
+    }
+
+    /** 저장된 블록을 번호 순으로 그대로 보여 준다 (조작된 블록도 그대로) */
+    public List<BlockDto> blocks(Long fromIndex, int limit) {
+        if (fromIndex == null) {
+            return List.of();
+        }
+        int size = Math.max(1, Math.min(limit, PAGE));
+        return repo.findByBlockIndexGreaterThanEqualOrderByBlockIndexAsc(Math.max(1L, fromIndex), PageRequest.of(0, size)).stream()
+                .map(b -> new BlockDto(b.blockIndex, b.prevBlockHash, b.recordKey, b.version, b.recordHash, b.timestamp, b.blockHash))
+                .toList();
     }
 
     /** 원장 상태. 체인 전체를 다시 검사하므로 조작 직후에도 바로 드러난다. 노드끼리 합의하지 않으므로 미확정 제안은 없다 */

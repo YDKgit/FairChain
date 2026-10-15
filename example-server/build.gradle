@@ -4,4 +4,13 @@ plugins {
 }
 dependencies {
     implementation project(':fairchain-api')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.security:spring-security-crypto'   // 회원 · 스태프 · 운영자 비밀번호 BCrypt
+    runtimeOnly 'com.h2database:h2'                 // 기본: 파일 DB (설치 없이 실행)
+    runtimeOnly 'com.mysql:mysql-connector-j'       // EXAMPLE_DB_URL로 MySQL 사용 가능
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

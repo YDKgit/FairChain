@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FairChain 점검</title>
+<style>
+  :root { --accent: #565cf5; --line: #e5e7eb; --muted: #6b7280; --ok: #15803d; --bad: #b91c1c; --warn: #b45309; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; color: #111827; background: #f8fafc; font-size: 14px; }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 14px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .client { color: var(--muted); }
+  header .spacer { flex: 1; }
+  nav { display: flex; gap: 4px; }
+  nav button { border: 1px solid var(--line); background: #fff; padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { padding: 18px 24px; }
+  .hidden { display: none !important; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 16px; overflow-x: auto; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; white-space: nowrap; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.body { white-space: normal; max-width: 420px; font-family: Consolas, monospace; font-size: 12px; color: #374151; }
+  .mono { font-family: Consolas, monospace; font-size: 12px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .s2 { background: #dcfce7; color: var(--ok); } .s4 { background: #fef3c7; color: var(--warn); } .s5 { background: #fee2e2; color: var(--bad); }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+  .nodes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .diff td { background: #fee2e2; }
+  .login { max-width: 360px; margin: 80px auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .login input { width: 100%; padding: 9px 10px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .login button, .primary { width: 100%; padding: 10px; background: var(--accent); color: #fff; border: 0; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .error { color: var(--bad); min-height: 18px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  @media (max-width: 1100px) { .nodes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<section id="loginView" class="login">
+  <h2 style="margin-top:0">FairChain 점검</h2>
+  <p class="hint">운영자 계정으로 로그인하면 받은 요청 · FairChain DB · 노드 3대의 블록을 볼 수 있습니다.</p>
+  <form id="loginForm">
+    <input id="loginId" placeholder="운영자 아이디" required>
+    <input id="password" type="password" placeholder="비밀번호" required>
+    <button>로그인</button>
+  </form>
+  <p id="loginError" class="error"></p>
+</section>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>FairChain 점검</h1>
+    <span class="client">고객사 <b id="clientId"></b></span>
+    <nav>
+      <button data-tab="requests" class="active">받은 요청</button>
+      <button data-tab="db">FairChain DB</button>
+      <button data-tab="nodes">블록체인 노드</button>
+    </nav>
+    <span class="spacer"></span>
+    <label><input type="checkbox" id="auto" checked> 2초마다 갱신</label>
+    <button id="logout" style="border:1px solid var(--line);background:#fff;padding:6px 12px;border-radius:8px;cursor:pointer">로그아웃</button>
+  </header>
+  <main>
+    <p id="error" class="error"></p>
+
+    <section id="tab-requests">
+      <div class="card">
+        <h2>예제서버 등 고객사가 보낸 /api 요청 (최신순, 최대 500건)</h2>
+        <table>
+          <thead><tr><th>#</th><th>시각</th><th>메서드</th><th>경로</th><th>상태</th><th>ms</th><th>요청 본문</th><th>응답 본문</th></tr></thead>
+          <tbody id="requestRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-db" class="hidden">
+      <div class="card">
+        <h2>공연 (event)</h2>
+        <table>
+          <thead><tr><th>eventId</th><th>전체 좌석</th><th>남은 좌석</th><th>최초 매진 시각</th></tr></thead>
+          <tbody id="eventRows"></tbody>
+        </table>
+        <p class="hint">블록 기록 대기 줄(Redis): <b id="queueSize"></b>건</p>
+      </div>
+      <div class="card">
+        <h2>기록 사본 (anchor_record, 최신순)</h2>
+        <table>
+          <thead><tr><th>id</th><th>eventId</th><th>userId</th><th>종류</th><th>버전</th><th>recordKey</th><th>recordHash</th><th>블록 상태</th><th>블록 번호</th><th>기록 시각</th></tr></thead>
+          <tbody id="anchorRows"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>입장 기록 (admission, 최신순)</h2>
+        <table>
+          <thead><tr><th>id</th><th>eventId</th><th>userId</th><th>대기 순번</th><th>상태</th><th>입장 시각</th></tr></thead>
+          <tbody id="admissionRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-nodes" class="hidden">
+      <p class="hint">노드마다 최근 30개 블록 (최신순). 같은 번호에서 다른 노드와 해시가 다르면 빨갛게 표시합니다.</p>
+      <div id="nodeCards" class="nodes"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const state = { token: sessionStorage.getItem('inspectToken'), clientId: sessionStorage.getItem('inspectClient'), tab: 'requests', timer: null };
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const short = (h) => h ? `<span class="mono" title="${esc(h)}">${esc(h.slice(0, 10))}…</span>` : '';
+  const time = (t) => t ? esc(String(t).replace('T', ' ').slice(0, 19)) : '';
+  const statusBadge = (s) => `<span class="badge s${String(s)[0]}">${s}</span>`;
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/dashboard/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loginId: $('loginId').value, password: $('password').value })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { $('loginError').textContent = body.message || '로그인 실패'; return; }
+    state.token = body.dashboardToken; state.clientId = body.clientId;
+    sessionStorage.setItem('inspectToken', state.token); sessionStorage.setItem('inspectClient', state.clientId);
+    show();
+  });
+
+  $('logout').addEventListener('click', () => {
+    sessionStorage.clear(); state.token = null; clearInterval(state.timer);
+    $('app').classList.add('hidden'); $('loginView').classList.remove('hidden');
+  });
+
+  document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
+    state.tab = b.dataset.tab;
+    ['requests', 'db', 'nodes'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== state.tab));
+    refresh();
+  }));
+
+  async function load(path) {
+    const res = await fetch(`/dashboard/inspect/${path}?token=${encodeURIComponent(state.token)}`);
+    if (res.status === 401) { $('logout').click(); throw new Error('토큰이 만료되었습니다. 다시 로그인하세요'); }
+    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function refresh() {
+    try {
+      $('error').textContent = '';
+      if (state.tab === 'requests') renderRequests(await load('requests'));
+      if (state.tab === 'db') renderDb(await load('db'));
+      if (state.tab === 'nodes') renderNodes(await load('nodes'));
+    } catch (e) { $('error').textContent = e.message; }
+  }
+
+  function renderRequests(rows) {
+    $('requestRows').innerHTML = rows.map((r) => `<tr>
+      <td>${r.id}</td><td>${time(r.time)}</td><td>${esc(r.method)}</td><td class="mono">${esc(r.path)}</td>
+      <td>${statusBadge(r.status)}</td><td>${r.durationMs}</td>
+      <td class="body">${esc(r.requestBody)}</td><td class="body">${esc(r.responseBody)}</td></tr>`).join('')
+      || '<tr><td colspan="8" class="hint">아직 받은 요청이 없습니다</td></tr>';
+  }
+
+  function renderDb(db) {
+    $('queueSize').textContent = db.blockQueueSize;
+    $('eventRows').innerHTML = db.events.map((e) => `<tr><td>${e.eventId}</td><td>${e.totalSeats}</td><td>${e.remainingSeats}</td><td>${time(e.soldOutAt)}</td></tr>`).join('')
+      || '<tr><td colspan="4" class="hint">없음</td></tr>';
+    $('anchorRows').innerHTML = db.anchorRecords.map((a) => `<tr>
+      <td>${a.id}</td><td>${a.eventId}</td><td>${a.userId ?? ''}</td><td>${esc(a.type)}</td><td>v${a.version}</td>
+      <td>${short(a.recordKey)}</td><td>${short(a.recordHash)}</td>
+      <td class="${a.blockState === 'CONFIRMED' ? 'ok' : 'warn'}">${esc(a.blockState)}</td><td>${a.blockIndex ?? ''}</td><td>${time(a.createdAt)}</td></tr>`).join('')
+      || '<tr><td colspan="10" class="hint">없음</td></tr>';
+    $('admissionRows').innerHTML = db.admissions.map((a) => `<tr><td>${a.id}</td><td>${a.eventId}</td><td>${a.userId}</td><td>${a.sequenceNumber}</td><td>${esc(a.status)}</td><td>${time(a.admittedAt)}</td></tr>`).join('')
+      || '<tr><td colspan="6" class="hint">없음</td></tr>';
+  }
+
+  function renderNodes(nodes) {
+    // 같은 번호의 블록 해시를 노드끼리 비교해 다수와 다른 것을 표시
+    const votes = {};
+    nodes.forEach((n) => n.blocks.forEach((b) => {
+      votes[b.blockIndex] = votes[b.blockIndex] || {};
+      votes[b.blockIndex][b.blockHash + b.recordHash] = (votes[b.blockIndex][b.blockHash + b.recordHash] || 0) + 1;
+    }));
+    const odd = (b) => Object.keys(votes[b.blockIndex]).length > 1 && votes[b.blockIndex][b.blockHash + b.recordHash] < 2;
+    $('nodeCards').innerHTML = nodes.map((n) => {
+      const s = n.status;
+      const head = !n.reachable ? `<p class="bad">응답 없음 — ${esc(n.error)}</p>` : `
+        <p>높이 <b>${s.height}</b> · 마지막 해시 ${short(s.headHash)} ·
+           체인 무결성 ${s.chainValid ? '<span class="ok">정상</span>' : '<span class="bad">깨짐</span>'}</p>`;
+      const rows = n.blocks.map((b) => `<tr class="${odd(b) ? 'diff' : ''}">
+        <td>${b.blockIndex}</td><td>${short(b.recordKey)}</td><td>v${b.version}</td><td>${short(b.recordHash)}</td>
+        <td>${short(b.blockHash)}</td><td>${short(b.prevBlockHash)}</td></tr>`).join('');
+      return `<div class="card"><h2 class="mono">${esc(n.url)}</h2>${head}
+        <table><thead><tr><th>#</th><th>recordKey</th><th>버전</th><th>recordHash</th><th>blockHash</th><th>prevHash</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" class="hint">블록 없음</td></tr>'}</tbody></table></div>`;
+    }).join('');
+  }
+
+  function show() {
+    $('loginView').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('clientId').textContent = state.clientId || '';
+    clearInterval(state.timer);
+    state.timer = setInterval(() => { if ($('auto').checked) refresh(); }, 2000);
+    refresh();
+  }
+
+  if (state.token) show();
+</script>
+</body>
+</html>
