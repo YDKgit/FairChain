@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:fairchain;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+fairchain:
+  queue:
+    admit-per-second: 10
+    admission-ttl: 5m
+  rate-limit:
+    per-second: 5
+    idempotency-ttl: 10m
+  scheduling:
+    enabled: false
+  nodes:
+    urls: http://localhost:9001,http://localhost:9002,http://localhost:9003
+    api-key:
+    timeout: 1s
+  seed:
+    client-id: example-server
+    api-key: test-key
+    operator-login-id: admin
+    operator-password: test-operator-pw
