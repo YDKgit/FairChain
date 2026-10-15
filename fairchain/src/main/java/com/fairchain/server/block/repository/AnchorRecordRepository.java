@@ -21,6 +21,9 @@ public interface AnchorRecordRepository extends JpaRepository<AnchorRecord, Long
 
     List<AnchorRecord> findByBlockStateOrderByIdAsc(BlockState blockState);
 
+    /** 시연 페이지: 한 공연의 모든 기록 (오래된 순) */
+    List<AnchorRecord> findByClientIdAndEventIdOrderByIdAsc(String clientId, Long eventId);
+
     /**
      * SS-05 목록: 좌석 키마다 최신 버전만, 그 최신 기록의 주인이 이 회원이고 PURCHASE · CHECKIN인 것
      * (취소 · 재배정으로 주인이 바뀐 티켓 제외). eventId가 null이면 모든 공연.

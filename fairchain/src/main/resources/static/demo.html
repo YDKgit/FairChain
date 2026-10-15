@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FairChain 시연</title>
+<style>
+  body { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+  header { background: #1f2937; color: #fff; padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0 12px 0 0; }
+  header input { width: 90px; }
+  header input#apiKey { width: 260px; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; max-width: 1200px; margin: auto; }
+  section { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  section.wide { grid-column: 1 / -1; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  input, select, button { font-size: 14px; padding: 5px 8px; }
+  button { cursor: pointer; border: 0; border-radius: 4px; background: #2563eb; color: #fff; }
+  button.red { background: #dc2626; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .msg { font-size: 13px; color: #666; min-height: 18px; }
+  .msg.err { color: #dc2626; }
+  .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .seat { border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 13px; }
+  .seat b { font-size: 15px; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; color: #fff; }
+  .PENDING { background: #f59e0b; }
+  .CONFIRMED { background: #16a34a; }
+  .nodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .node { border-radius: 6px; padding: 10px; font-size: 13px; border: 2px solid #16a34a; }
+  .node.bad { border-color: #dc2626; background: #fef2f2; }
+  .node.down { border-color: #9ca3af; background: #f3f4f6; color: #888; }
+  .hash { font-family: monospace; font-size: 12px; word-break: break-all; }
+  .result { font-size: 28px; font-weight: bold; padding: 14px; border-radius: 8px; text-align: center; margin-top: 10px; }
+  .result.VERIFIED { background: #dcfce7; color: #15803d; }
+  .result.TAMPERED { background: #fee2e2; color: #b91c1c; }
+  .result.UNKNOWN { background: #f3f4f6; color: #555; }
+  .ticket { border: 2px dashed #999; border-radius: 8px; padding: 10px; display: grid; grid-template-columns: 80px 1fr; gap: 6px; align-items: center; max-width: 360px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } .nodes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>FairChain 시연</h1>
+  <label>API Key <input id="apiKey" placeholder="X-API-KEY"></label>
+  <label>공연 ID <input id="eventId" type="number" value="1"></label>
+</header>
+
+<main>
+  <section>
+    <h2>① 좌석 발행</h2>
+    <div class="row">
+      <input id="issueCount" type="number" value="5" min="1" max="20"> 석
+      <button onclick="issueSeats()">발행</button>
+    </div>
+    <div id="issueMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>② 예매</h2>
+    <div class="row">
+      좌석 <select id="buySeat"></select>
+      회원 ID <input id="buyUser" type="number" value="100" style="width:80px">
+      <button onclick="purchase()">구매</button>
+    </div>
+    <div id="buyMsg" class="msg"></div>
+  </section>
+
+  <section class="wide">
+    <h2>좌석 · 블록 기록 상태 <span class="msg">(1초마다 새로고침)</span></h2>
+    <div id="seats" class="seats"></div>
+  </section>
+
+  <section class="wide">
+    <h2>③ 노드 3대 블록체인</h2>
+    <div id="nodes" class="nodes"></div>
+    <div id="nodeSummary" class="msg"></div>
+  </section>
+
+  <section class="wide">
+    <h2>④ 체크인 검증 · ⑤ 위조 티켓</h2>
+    <div class="row">
+      판매된 좌석 <select id="ticketSeat" onchange="loadTicket()"></select>
+    </div>
+    <div class="ticket">
+      <span>공연</span><input id="tEvent" type="number">
+      <span>좌석</span><input id="tSeat" type="number">
+      <span>회원</span><input id="tUser" type="number">
+    </div>
+    <p class="msg">티켓 내용을 그대로 두면 정상 티켓, 좌석이나 회원 번호를 바꾸면 위조 티켓이에요.</p>
+    <div class="row">
+      <button onclick="loadTicket()">원래 티켓으로 되돌리기</button>
+      <button onclick="checkin()">입장 검증</button>
+    </div>
+    <div id="checkinResult"></div>
+  </section>
+</main>
+
+<script>
+// ---------- 지문 계산 (fairchain-api Sha256RecordHasher와 같은 방식: 필드마다 "길이:값") ----------
+async function hash(...fields) {
+  const text = fields.map(f => f == null ? '-1:' : String(f).length + ':' + f).join('');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// 좌석 키 = hash(고객사 구분값, 좌석 번호). 원래는 예제서버가 계산한다
+const recordKey = (eventId, seat) => hash('demo-' + eventId, String(seat));
+const ticketHash = (eventId, seat, userId, type) =>
+  type === 'ISSUE' ? hash(String(eventId), String(seat), 'ISSUE')
+                   : hash(String(eventId), String(seat), String(userId), type);
+
+// ---------- 상태 ----------
+const MAX_SEATS = 100;
+let keyToSeat = {};      // recordKey → 좌석 번호
+let records = [];        // 서버의 좌석별 최신 기록
+const $ = id => document.getElementById(id);
+const eventId = () => Number($('eventId').value);
+
+try { $('apiKey').value = localStorage.getItem('fc-demo-key') || ''; } catch (e) {}
+$('apiKey').onchange = () => { try { localStorage.setItem('fc-demo-key', $('apiKey').value); } catch (e) {} };
+$('eventId').onchange = buildSeatKeys;
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-API-KEY': $('apiKey').value.trim() },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(res.status + ' ' + (data && (data.message || data.error) || text));
+  return data;
+}
+
+function show(id, text, err) { $(id).textContent = text; $(id).className = 'msg' + (err ? ' err' : ''); }
+
+async function buildSeatKeys() {
+  keyToSeat = {};
+  const ev = eventId();
+  for (let s = 1; s <= MAX_SEATS; s++) keyToSeat[await recordKey(ev, s)] = s;
+  refresh();
+}
+
+// ---------- ① 좌석 발행 ----------
+async function issueSeats() {
+  const ev = eventId();
+  const start = Math.max(0, ...records.map(r => keyToSeat[r.recordKey] || 0)) + 1;
+  const count = Number($('issueCount').value);
+  if (start + count - 1 > MAX_SEATS) return show('issueMsg', '시연 페이지는 좌석 ' + MAX_SEATS + '석까지만 지원해요', true);
+  const list = [];
+  for (let s = start; s < start + count; s++) {
+    list.push({ type: 'ISSUE', eventId: ev, userId: null, slotKey: 'A-' + s,
+                recordKey: await recordKey(ev, s), version: 1, recordHash: await ticketHash(ev, s, null, 'ISSUE') });
+  }
+  try {
+    await api('POST', '/api/admin/seats/issue', { eventId: ev, records: list });
+    show('issueMsg', start + '번 ~ ' + (start + count - 1) + '번 좌석 발행 요청 완료 → 블록 기록 대기 중');
+  } catch (e) { show('issueMsg', e.message, true); }
+  refresh();
+}
+
+// ---------- ② 예매 ----------
+async function purchase() {
+  const ev = eventId(), seat = Number($('buySeat').value), user = Number($('buyUser').value);
+  const rec = records.find(r => keyToSeat[r.recordKey] === seat);
+  if (!rec) return show('buyMsg', '판매할 좌석이 없어요', true);
+  try {
+    const res = await api('POST', '/api/records', {
+      type: 'PURCHASE', eventId: ev, userId: user, slotKey: 'A-' + seat,
+      recordKey: rec.recordKey, version: rec.version + 1, recordHash: await ticketHash(ev, seat, user, 'PURCHASE')
+    });
+    show('buyMsg', seat + '번 좌석 → 회원 ' + user + ' 구매 완료' + (res.soldOut ? ' (매진)' : ''));
+  } catch (e) { show('buyMsg', e.message, true); }
+  refresh();
+}
+
+// ---------- ④⑤ 체크인 ----------
+function loadTicket() {
+  const seat = Number($('ticketSeat').value);
+  const rec = records.find(r => keyToSeat[r.recordKey] === seat);
+  $('checkinResult').innerHTML = '';
+  if (!rec) return;
+  $('tEvent').value = eventId(); $('tSeat').value = seat; $('tUser').value = rec.userId;
+}
+
+async function checkin() {
+  const seat = Number($('ticketSeat').value);
+  const rec = records.find(r => keyToSeat[r.recordKey] === seat);
+  if (!rec) return;
+  // 지문은 화면의 티켓 내용으로 다시 계산 → 내용이 바뀌었으면 지문이 달라진다
+  const recordHash = await ticketHash($('tEvent').value, $('tSeat').value, $('tUser').value, 'PURCHASE');
+  try {
+    const res = await api('POST', '/api/checkin/verify', { recordKey: rec.recordKey, version: rec.version, recordHash });
+    const label = { VERIFIED: '✅ 입장 가능 (VERIFIED)', TAMPERED: '⛔ 위조 티켓 (TAMPERED)' }[res.status] || res.status;
+    $('checkinResult').innerHTML = '<div class="result ' + res.status + '">' + label + '</div>' +
+      '<p class="msg">' + (res.reason || '') + '</p><p class="msg hash">보낸 지문: ' + recordHash + '</p>';
+  } catch (e) {
+    $('checkinResult').innerHTML = '<p class="msg err">' + e.message + '</p>';
+  }
+}
+
+// ---------- 화면 새로고침 ----------
+function fillSelect(sel, seats) {
+  const before = sel.value;
+  sel.innerHTML = seats.map(s => '<option value="' + s + '">' + s + '번</option>').join('');
+  if (seats.includes(Number(before))) sel.value = before;
+  return before !== sel.value;
+}
+
+async function refreshSeats() {
+  try { records = await api('GET', '/api/demo/events/' + eventId() + '/records'); }
+  catch (e) { $('seats').innerHTML = '<p class="msg err">' + e.message + '</p>'; return; }
+  records.sort((a, b) => (keyToSeat[a.recordKey] || 0) - (keyToSeat[b.recordKey] || 0));
+  $('seats').innerHTML = records.map(r => {
+    const seat = keyToSeat[r.recordKey] || '?';
+    const who = r.type === 'ISSUE' ? '판매 전' : '회원 ' + r.userId;
+    return '<div class="seat"><b>' + seat + '번</b> ' + r.type + ' v' + r.version + '<br>' + who + '<br>' +
+      '<span class="badge ' + r.blockState + '">' + r.blockState + '</span>' +
+      (r.blockIndex != null ? ' 블록 #' + r.blockIndex : '') + '</div>';
+  }).join('') || '<p class="msg">아직 발행된 좌석이 없어요</p>';
+
+  fillSelect($('buySeat'), records.filter(r => r.type === 'ISSUE').map(r => keyToSeat[r.recordKey]));
+  const changed = fillSelect($('ticketSeat'), records.filter(r => r.type === 'PURCHASE').map(r => keyToSeat[r.recordKey]));
+  if (changed || !$('tSeat').value) loadTicket();
+}
+
+async function refreshNodes() {
+  let list;
+  try { list = await api('GET', '/api/demo/nodes'); } catch (e) { return; }
+  $('nodes').innerHTML = list.map(n => !n.up
+    ? '<div class="node down"><b>노드 ' + n.node + '</b><br>응답 없음</div>'
+    : '<div class="node ' + (n.chainValid ? '' : 'bad') + '"><b>노드 ' + n.node + '</b> — 블록 ' + n.height + '개 ' +
+      (n.chainValid ? '✅ 체인 정상' : '⛔ 체인 깨짐') + '<br>마지막 블록 해시<div class="hash">' + (n.headHash || '-') + '</div></div>'
+  ).join('');
+  const up = list.filter(n => n.up);
+  const same = up.length > 1 && up.every(n => n.headHash === up[0].headHash);
+  $('nodeSummary').textContent = same ? '노드 ' + up.length + '대의 마지막 블록 해시가 모두 같아요'
+                                      : '노드끼리 마지막 블록 해시가 달라요 (기록 중이거나 노드 이상)';
+}
+
+function refresh() { refreshSeats(); refreshNodes(); }
+buildSeatKeys();
+setInterval(refresh, 1000);
+</script>
+</body>
+</html>
