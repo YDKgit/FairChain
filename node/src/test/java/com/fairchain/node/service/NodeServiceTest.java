@@ -189,6 +189,21 @@ class NodeServiceTest {
     }
 
     @Test
+    void blocksAreListedInOrderFromTheRequestedNumber() {
+        submit(1, 1, RECORD);
+        submit(2, 1, RECORD);
+        submit(3, 1, RECORD);
+
+        var listed = service.blocks(2L, 10);
+
+        assertEquals(List.of(2L, 3L), listed.stream().map(b -> b.blockIndex()).toList());
+        assertEquals(key(2), listed.get(0).recordKey());
+        assertEquals(blocks.findById(1L).orElseThrow().blockHash, listed.get(0).prevBlockHash());
+        assertEquals(1, service.blocks(1L, 1).size());
+        assertTrue(service.blocks(9L, 10).isEmpty());
+    }
+
+    @Test
     void emptyLedgerStartsAtGenesis() {
         var status = service.ledgerStatus();
 
