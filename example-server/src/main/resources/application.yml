@@ -1,0 +1,34 @@
+# 공통 설정 (비밀값 없음) — DB · API Key는 application-local.yml (application-example.yml 복사)
+spring:
+  application:
+    name: example-server
+  profiles:
+    default: local
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: 8080
+
+fairchain:
+  base-url: http://localhost:8081
+  client-id: example-client
+  timeout: 3s
+
+example:
+  cors:
+    allowed-origins: http://localhost:5173
+  reallocation:
+    offer-ttl: 3m
+    expire-interval-ms: 10000
+  outbox:
+    dispatch-interval-ms: 5000
+    pending-delay: 10s
+  queue:
+    sse-timeout: 30m
+  checkin:
+    ignore-event-period: false   # 시연용: true면 공연 기간 검사 생략
+  mock:
+    sold-out: false              # fairchain-mock 프로필 전용

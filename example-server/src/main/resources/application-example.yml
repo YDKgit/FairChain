@@ -1,0 +1,25 @@
+# application-example.yml — 복사해서 application-local.yml로 사용 (application-local.yml은 gitignore)
+server:
+  port: 8080
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/example_server
+    username: CHANGE_ME
+    password: CHANGE_ME
+  jpa:
+    hibernate.ddl-auto: update
+    open-in-view: false
+fairchain:
+  base-url: http://localhost:8081
+  api-key: CHANGE_ME
+  client-id: CHANGE_ME        # recordKey = hash(clientId, seatId) 계산에 필요
+  timeout: 3s
+example:
+  cors.allowed-origins: http://localhost:5173
+  reallocation.offer-ttl: 3m
+  reallocation.expire-interval-ms: 10000
+  outbox.dispatch-interval-ms: 5000
+  outbox.pending-delay: 10s
+  queue.sse-timeout: 30m
+  checkin.ignore-event-period: false   # 시연용: true면 공연 기간 검사 생략
+  mock.sold-out: false                 # fairchain-mock 프로필 전용

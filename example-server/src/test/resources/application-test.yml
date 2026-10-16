@@ -1,0 +1,17 @@
+# 테스트 · 로컬 시연용 H2 (MySQL 모드)
+spring:
+  datasource:
+    # 컨텍스트마다 다른 DB (캐시된 테스트 컨텍스트끼리 스키마를 공유하지 않게)
+    url: jdbc:h2:mem:example-${random.uuid};MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+example:
+  # 테스트에서는 스케줄러 대신 직접 호출
+  reallocation:
+    expire-interval-ms: 3600000
+  outbox:
+    dispatch-interval-ms: 3600000
