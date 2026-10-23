@@ -43,6 +43,8 @@
   .node { border-radius: 6px; padding: 10px; font-size: 13px; border: 2px solid #16a34a; }
   .node.bad { border-color: #dc2626; background: #fef2f2; }
   .node.down { border-color: #9ca3af; background: #f3f4f6; color: #888; }
+  .node.lag { border-color: #f59e0b; background: #fffbeb; }
+  .consensus { font-size: 13px; color: #444; background: #f9fafb; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; }
   .hash { font-family: monospace; font-size: 12px; word-break: break-all; }
   .result { font-size: 28px; font-weight: bold; padding: 14px; border-radius: 8px; text-align: center; margin-top: 10px; }
   .result.VERIFIED { background: #dcfce7; color: #15803d; }
@@ -130,13 +132,14 @@
     <h2>좌석 · 블록 기록 상태 <span class="msg">(1초마다 새로고침 · 좌석을 누르면 ② 예매와 취소 칸 둘 다, ④ 체크인에 그 좌석이 채워져요)</span></h2>
     <div class="legend">
       좌석 상태 <span class="type ISSUE">판매 전</span><span class="type PURCHASE">예매됨</span><span class="type CANCEL">취소됨</span><span class="type CHECKIN">입장함</span>
-      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드 2대 이상 기록 완료
+      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드끼리 투표해 2대 이상 찬성 · 확정
     </div>
     <div id="seats" class="seats"></div>
   </section>
 
   <section class="wide">
     <h2>③ 노드 3대 블록체인</h2>
+    <div class="consensus">FairChain → 노드 1대에 제출 → <b>노드끼리 제안 · 투표</b> → 2대 이상 찬성하면 확정 &nbsp;·&nbsp; 꺼졌던 노드는 켜지면 다른 노드에서 빠진 블록을 받아 <b>스스로 따라잡음</b> &nbsp;·&nbsp; 체인이 깨진 노드는 <b>투표에서 빠짐</b></div>
     <div id="nodes" class="nodes"></div>
     <div id="nodeSummary" class="msg"></div>
   </section>
@@ -151,6 +154,7 @@
       <button class="red" onclick="prepareTicket('seat')">좌석 번호를 바꾼 티켓</button>
       <button class="red" onclick="prepareTicket('owner')">예매자를 바꾼 티켓</button>
       <button class="red" onclick="prepareTicket('old')">취소된 티켓</button>
+      <button class="red" onclick="prepareTicket('used')">이미 입장한 티켓</button>
     </div>
     <div class="checkin">
       <div id="ticketCard"><p class="msg">예매된 좌석이 생기면 여기에 티켓이 나와요</p></div>
@@ -250,7 +254,7 @@ async function issueSeats() {
                  recordHash: short(list[0].recordHash) }, '… 좌석 ' + count + '개'] };
   try {
     await api('POST', '/api/admin/seats/issue', { eventId: ev, records: list });
-    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드 3대로 →\n잠시 뒤 CONFIRMED');
+    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드로 →\n노드끼리 투표, 2대 이상 찬성하면 CONFIRMED');
     show('issueMsg', start + '번 ~ ' + (start + count - 1) + '번 좌석 발행 요청 완료 → 블록 기록 대기 중');
   } catch (e) { showFlow(ticketText, '/api/admin/seats/issue', sent, e.message); show('issueMsg', e.message, true); }
   refresh();
@@ -269,7 +273,7 @@ async function purchase(seat, user) {
                  version: body.version, recordHash: short(body.recordHash) };
   try {
     const res = await api('POST', '/api/records', body);
-    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 노드 3대에 블록 기록 → CONFIRMED');
+    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED');
     showBuy(seatName(seat) + ' → ' + who(user) + ' 예매 완료' + (res.soldOut ? ' (매진)' : ''));
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }
@@ -291,7 +295,7 @@ async function cancel(seat) {
   try {
     const res = await api('POST', '/api/records', body);
     showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version +
-      ' 취소 기록 저장(PENDING)\n→ 노드 3대에 블록 기록 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
+      ' 취소 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
     showBuy(seatName(seat) + ' ' + who(user) + ' 예매 취소 완료 → 다시 판매 가능');
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }
@@ -303,7 +307,7 @@ function selectSeat(seat) {
   selectedSeat = seat;
   const rec = seatRecord(seat);
   if (rec) { $('buySeat').value = seat; $('cancelSeat').value = seat; }
-  if (rec && (rec.type === 'PURCHASE' || rec.type === 'CANCEL')) {
+  if (rec && rec.type !== 'ISSUE') {
     $('ticketSeat').value = seat;
     prepareTicket(defaultKind());
   }
@@ -316,26 +320,45 @@ const SCENARIO = {
   normal: '예매한 그대로의 정상 티켓',
   seat: '누군가 좌석 번호만 앞자리로 고친 티켓',
   owner: '예매자를 다른 사람으로 고친 티켓 (양도 · 되팔기 위조)',
-  old: '예매했다가 취소한 티켓을 그대로 들고 옴'
+  old: '예매했다가 취소한 티켓을 그대로 들고 옴',
+  used: '이미 입장한 티켓으로 한 번 더 들어가려 함'
 };
 const RESULT_HINT = '<p class="msg">티켓 아래 [이 티켓으로 체크인]을 누르면 여기에 결과가 나와요</p>';
 let ticket = null;  // 화면에 보이는 티켓 {recordKey, seat, user, version, kind, origSeat, origUser, baseVersion}
 
 const defaultKind = () => {
   const rec = seatRecord(Number($('ticketSeat').value));
-  return rec && rec.type === 'CANCEL' ? 'old' : 'normal';
+  return rec && rec.type === 'CANCEL' ? 'old' : rec && rec.type === 'CHECKIN' ? 'used' : 'normal';
 };
 
+// VERIFIED면 예제서버가 입장 처리 → CHECKIN 기록 (같은 티켓으로는 다시 못 들어옴)
+async function recordCheckin(t, rec) {
+  const ev = eventId();
+  const body = { type: 'CHECKIN', eventId: ev, userId: t.user, slotKey: 'A-' + t.seat,
+                 recordKey: rec.recordKey, version: rec.version + 1, recordHash: await ticketHash(ev, t.seat, t.user, 'CHECKIN') };
+  try {
+    await api('POST', '/api/records', body);
+    // 기록이 바뀌어도 새로고침이 티켓 · 결과를 다시 그리지 않게 (결과를 화면에 남겨 둔다)
+    t.baseVersion = body.version;
+    $('checkinResult').insertAdjacentHTML('beforeend', '<p class="msg">입장 처리 → CHECKIN 기록 v' + body.version +
+      ' 저장. 이제 이 좌석은 "입장함"이고, 같은 티켓으로는 다시 들어올 수 없어요</p>');
+  } catch (e) {
+    $('checkinResult').insertAdjacentHTML('beforeend', '<p class="msg err">입장 기록 실패: ' + e.message + '</p>');
+  }
+  refresh();
+}
+
 function prepareTicket(kind) {
-  const want = kind === 'old' ? 'CANCEL' : 'PURCHASE';
+  const want = { old: 'CANCEL', used: 'CHECKIN' }[kind] || 'PURCHASE';
   let rec = seatRecord(Number($('ticketSeat').value));
   if (!rec || rec.type !== want) {
     rec = records.filter(r => r.type === want).pop();   // 고른 좌석이 시나리오와 안 맞으면 맞는 좌석으로 바꾼다
     if (!rec) {
       ticket = null;
-      $('ticketCard').innerHTML = '<p class="msg err">' + (kind === 'old'
-        ? '취소된 좌석이 없어요. ②에서 좌석 하나를 예매 취소해 주세요'
-        : '예매된 좌석이 없어요. ②에서 먼저 예매해 주세요') + '</p>';
+      $('ticketCard').innerHTML = '<p class="msg err">' + ({
+        old: '취소된 좌석이 없어요. ②에서 좌석 하나를 예매 취소해 주세요',
+        used: '입장한 좌석이 없어요. 정상 티켓으로 먼저 체크인해 주세요'
+      }[kind] || '예매된 좌석이 없어요. ②에서 먼저 예매해 주세요') + '</p>';
       $('checkinResult').innerHTML = '';
       return false;
     }
@@ -346,7 +369,7 @@ function prepareTicket(kind) {
              origSeat: seat, origUser: rec.userId, baseVersion: rec.version };
   if (kind === 'seat') ticket.seat = seat === 1 ? 2 : 1;
   if (kind === 'owner') ticket.user = rec.userId === 100 ? 200 : 100;
-  if (kind === 'old') ticket.version = rec.version - 1;   // 취소 바로 전의 예매 기록
+  if (kind === 'old' || kind === 'used') ticket.version = rec.version - 1;   // 취소 · 입장 바로 전의 예매 기록
   renderTicket();
   $('checkinResult').innerHTML = RESULT_HINT;
   return true;
@@ -354,7 +377,7 @@ function prepareTicket(kind) {
 
 function renderTicket() {
   const t = ticket;
-  const seatChg = t.seat !== t.origSeat, userChg = t.user !== t.origUser, old = t.kind === 'old';
+  const seatChg = t.seat !== t.origSeat, userChg = t.user !== t.origUser, old = t.kind === 'old' || t.kind === 'used';
   $('ticketCard').innerHTML =
     '<div class="tk"><div class="tk-main"><div class="tk-title">🎫 ' + EVENT_NAME + '</div>' +
     '<div class="tk-row"><span>공연</span><b>#' + eventId() + '</b></div>' +
@@ -362,7 +385,7 @@ function renderTicket() {
       (seatChg ? '<small class="chg">' + seatName(t.origSeat) + '</small>' : '') + '</div>' +
     '<div class="tk-row"><span>예매자</span><b' + (userChg ? ' class="chg"' : '') + '>' + who(t.user) + '</b>' +
       (userChg ? '<small class="chg">' + who(t.origUser) + '</small>' : '<small>회원 ' + t.user + '</small>') + '</div>' +
-    '</div><div class="tk-stub">티켓 버전<b' + (old ? ' class="chg"' : '') + '>v' + t.version + '</b>' + (old ? '취소 전' : '') + '</div></div>' +
+    '</div><div class="tk-stub">티켓 버전<b' + (old ? ' class="chg"' : '') + '>v' + t.version + '</b>' + (old ? (t.kind === 'used' ? '입장 전' : '취소 전') : '') + '</div></div>' +
     '<p class="scenario">' + (t.kind === 'normal' ? '' : '⚠️ ') + SCENARIO[t.kind] + '</p>' +
     '<button class="checkin-btn" onclick="checkin()">이 티켓으로 체크인</button>';
 }
@@ -388,6 +411,7 @@ async function checkin() {
       '<div class="cmp-verdict">' + (same ? '= 같음' : '≠ 다름') + '</div>' +
       '<div class="cmp-row ' + (same ? 'same' : 'diff') + '">들고 온 티켓으로 다시 계산한 해시값 (v' + t.version + ')<code>' + recordHash + '</code></div></div>' +
       '<p class="msg">' + (res.reason || '') + '</p>';
+    if (res.status === 'VERIFIED') await recordCheckin(t, rec);
   } catch (e) {
     $('checkinResult').innerHTML = '<p class="msg err">' + e.message + '</p>';
   }
@@ -413,7 +437,7 @@ async function refreshSeats() {
   const all = seatsOf('ISSUE', 'PURCHASE', 'CANCEL', 'CHECKIN');
   fillSelect($('buySeat'), all, seatLabel);
   fillSelect($('cancelSeat'), all, seatLabel);
-  const changed = fillSelect($('ticketSeat'), seatsOf('PURCHASE', 'CANCEL'), s => {
+  const changed = fillSelect($('ticketSeat'), seatsOf('PURCHASE', 'CANCEL', 'CHECKIN'), s => {
     const r = seatRecord(s);
     return seatName(s) + ' · ' + who(r.userId) + ' (' + TYPE_LABEL[r.type] + ')';
   });
@@ -438,15 +462,22 @@ function renderSeats() {
 async function refreshNodes() {
   let list;
   try { list = await api('GET', '/api/demo/nodes'); } catch (e) { return; }
-  $('nodes').innerHTML = list.map(n => !n.up
-    ? '<div class="node down"><b>노드 ' + n.node + '</b><br>응답 없음</div>'
-    : '<div class="node ' + (n.chainValid ? '' : 'bad') + '"><b>노드 ' + n.node + '</b> — 블록 ' + n.height + '개 ' +
-      (n.chainValid ? '✅ 체인 정상' : '⛔ 체인 깨짐') + '<br>마지막 블록 해시<div class="hash">' + (n.headHash || '-') + '</div></div>'
-  ).join('');
+  // 가장 앞선 정상 노드의 블록 수보다 적으면 "따라잡는 중"
+  const top = Math.max(0, ...list.filter(n => n.up && n.chainValid).map(n => n.height));
+  $('nodes').innerHTML = list.map(n => {
+    if (!n.up) return '<div class="node down"><b>노드 ' + n.node + '</b> — 꺼짐<br>투표에 참여하지 않음 (켜지면 따라잡음)</div>';
+    const state = !n.chainValid ? ['bad', '⛔ 체인 깨짐 · 투표에서 빠짐']
+                : n.height < top ? ['lag', '⏳ 따라잡는 중 (' + (top - n.height) + '개 남음)']
+                : ['', '✅ 정상 · 투표 참여'];
+    return '<div class="node ' + state[0] + '"><b>노드 ' + n.node + '</b> — 블록 ' + n.height + '개<br>' + state[1] +
+      '<br>마지막 블록 해시<div class="hash">' + (n.headHash || '-') + '</div></div>';
+  }).join('');
   const up = list.filter(n => n.up);
+  const voters = up.filter(n => n.chainValid).length;
   const same = up.length > 1 && up.every(n => n.headHash === up[0].headHash);
-  $('nodeSummary').textContent = same ? '노드 ' + up.length + '대의 마지막 블록 해시가 모두 같아요'
-                                      : '노드끼리 마지막 블록 해시가 달라요 (기록 중이거나 노드 이상)';
+  $('nodeSummary').textContent = (same ? '노드 ' + up.length + '대의 마지막 블록 해시가 모두 같아요'
+                                       : '노드끼리 마지막 블록 해시가 달라요 (기록 · 따라잡기 중이거나 노드 이상)') +
+    ' · 투표 가능한 노드 ' + voters + '대' + (voters >= 2 ? ' → 새 기록 확정 가능' : ' → 2대 미만이라 새 기록 확정 불가');
 }
 
 function refresh() { refreshSeats(); refreshNodes(); }
