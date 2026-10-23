@@ -12,6 +12,7 @@ dependencies {
     implementation 'org.springframework.security:spring-security-crypto'   // 운영자 비밀번호 BCrypt
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'  // Swagger UI (/swagger-ui.html)
     runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'com.h2database:h2'           // MySQL 없이 로컬 실행할 때 (scripts/run-local.ps1이 DB_URL로 지정)
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'

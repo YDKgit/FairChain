@@ -26,23 +26,20 @@ public class BlockRecordRequester implements BlockRecordAccess {
         this.nodes = nodeRequesters;
     }
 
-    /**
-     * 노드 3대에 같은 기록을 각각 보낸다 (노드끼리는 통신하지 않는다).
-     * 2대 이상이 같은 결과(승인 · 블록 번호)를 돌려주면 그 결과를 채택하고, 아니면 미승인으로 본다.
-     * 노드는 같은 기록을 다시 받아도 블록을 새로 만들지 않으므로, 미승인일 때 그대로 다시 보내도 된다.
-     */
+    /** 노드 하나에 제출하면 그 노드가 다른 노드에 제안 · 합의한다. 실패하면 다음 노드로 */
     @Override
     public BlockResultDto submitRecord(BlockRecordDto dto) {
-        List<BlockResultDto> responses = new ArrayList<>();
         for (HttpRequester node : nodes) {
             try {
-                responses.add(node.post(BlockRecordApi.RECORDS, dto, BlockResultDto.class));
+                BlockResultDto result = node.post(BlockRecordApi.RECORDS, dto, BlockResultDto.class);
+                if (result != null && result.accepted()) {
+                    return result;
+                }
             } catch (RuntimeException e) {
-                log.warn("노드 기록 응답 없음: {}", e.getMessage());
-                responses.add(null);
+                log.warn("노드 기록 실패, 다음 노드 시도: {}", e.getMessage());
             }
         }
-        return Majority.pick(responses, nodes.size()).orElse(new BlockResultDto(false, null));
+        return new BlockResultDto(false, null);
     }
 
     @Override

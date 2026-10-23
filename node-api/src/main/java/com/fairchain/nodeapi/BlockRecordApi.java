@@ -13,11 +13,7 @@ public interface BlockRecordApi {
     String RECORDS = "/node/records";
     String VERIFY = "/node/records/verify";
 
-    /**
-     * 블록 기록 요청 — 받은 노드가 자기 체인 끝에 블록을 추가한다. 노드끼리는 통신하지 않는다.
-     * FairChain이 노드 3대에 같은 기록을 각각 보내고, 2대 이상이 같은 결과를 돌려주면 확정으로 본다.
-     * 같은 기록을 다시 받으면 새 블록 없이 기존 블록 번호를 돌려준다.
-     */
+    /** 블록 기록 요청 — 받은 노드가 블록을 만들어 다른 노드에 제안하고 2/3 동의 시 확정 */
     @PostMapping(RECORDS)
     BlockResultDto submitRecord(@RequestBody BlockRecordDto dto);
 

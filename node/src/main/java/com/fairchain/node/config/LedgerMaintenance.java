@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
-/** 주기 점검 — 체인 전체 무결성 검사. 깨진 것이 발견되면 노드가 새 기록을 받지 않는다 */
+/** 주기 점검 — 체인 전체 검사, 뒤처진 블록 따라잡기, 끝나지 못한 제안 마무리 */
 @Configuration
 @EnableScheduling
 public class LedgerMaintenance {
@@ -20,10 +20,10 @@ public class LedgerMaintenance {
         this.nodeService = nodeService;
     }
 
-    @Scheduled(initialDelayString = "${node.audit-interval-ms:5000}", fixedDelayString = "${node.audit-interval-ms:5000}")
+    @Scheduled(initialDelayString = "${node.sync-initial-delay-ms:1000}", fixedDelayString = "${node.sync-interval-ms:5000}")
     public void run() {
         try {
-            nodeService.auditChain();
+            nodeService.maintain();
         } catch (RuntimeException e) {
             log.warn("주기 점검 실패: {}", e.getMessage());
         }
