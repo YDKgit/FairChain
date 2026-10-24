@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
+
+import java.time.Duration;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,26 +48,35 @@ public class BlockRecordService {
         BlockRecordDto dto;
         while ((dto = blockQueueRepository.dequeue()) != null) {
             BlockResultDto result;
+            long started = System.nanoTime();
             try {
                 result = blockRecordAccess.submitRecord(dto);
             } catch (RuntimeException e) {
                 result = new BlockResultDto(false, null);
             }
+            long nodeMillis = (System.nanoTime() - started) / 1_000_000;
             if (!result.accepted()) {
                 blockQueueRepository.pushFront(dto);
                 log.warn("블록 기록 실패, 다음 주기에 재시도: {} v{}", dto.recordKey(), dto.version());
                 return;
             }
-            confirm(dto, result.blockIndex());
+            confirm(dto, result.blockIndex(), nodeMillis);
         }
     }
 
     @Transactional
     public void confirm(BlockRecordDto dto, Long blockIndex) {
+        confirm(dto, blockIndex, null);
+    }
+
+    @Transactional
+    public void confirm(BlockRecordDto dto, Long blockIndex, Long nodeMillis) {
         anchorRecordRepository.findByRecordKeyAndVersion(dto.recordKey(), dto.version())
                 .ifPresent(record -> {
-                    record.confirm(blockIndex);
+                    record.confirm(blockIndex, nodeMillis);
                     anchorRecordRepository.save(record);
+                    log.info("블록 #{} 확정 — 노드 응답 {}ms, 접수부터 확정까지 {}ms", blockIndex, nodeMillis,
+                            Duration.between(record.getCreatedAt(), record.getConfirmedAt()).toMillis());
                 });
     }
 

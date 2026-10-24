@@ -61,6 +61,14 @@ public class AnchorRecord {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** 블록 확정 시각 — 접수(createdAt)부터 확정까지 걸린 시간을 보려고 */
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
+    /** 확정된 전송에서 노드가 답하기까지 걸린 시간 (ms, 노드끼리 투표 포함) */
+    @Column(name = "node_millis")
+    private Long nodeMillis;
+
     protected AnchorRecord() {}
 
     public static AnchorRecord pending(String clientId, RecordRequestDto dto) {
@@ -78,8 +86,14 @@ public class AnchorRecord {
     }
 
     public void confirm(Long blockIndex) {
+        confirm(blockIndex, null);
+    }
+
+    public void confirm(Long blockIndex, Long nodeMillis) {
         this.blockState = BlockState.CONFIRMED;
         this.blockIndex = blockIndex;
+        this.confirmedAt = LocalDateTime.now();
+        this.nodeMillis = nodeMillis;
     }
 
     public boolean isConfirmed() {
@@ -124,6 +138,14 @@ public class AnchorRecord {
 
     public Long getBlockIndex() {
         return blockIndex;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public Long getNodeMillis() {
+        return nodeMillis;
     }
 
     public LocalDateTime getCreatedAt() {

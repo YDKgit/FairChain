@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +40,8 @@ public class DemoController {
         }
         return latest.values().stream()
                 .map(r -> new SeatRecord(r.getRecordKey(), r.getVersion(), r.getType().name(), r.getUserId(),
-                        r.getRecordHash(), r.getBlockState().name(), r.getBlockIndex()))
+                        r.getRecordHash(), r.getBlockState().name(), r.getBlockIndex(), r.getNodeMillis(),
+                        r.getConfirmedAt() == null ? null : Duration.between(r.getCreatedAt(), r.getConfirmedAt()).toMillis()))
                 .toList();
     }
 
@@ -59,7 +61,8 @@ public class DemoController {
     }
 
     public record SeatRecord(String recordKey, Long version, String type, Long userId,
-                             String recordHash, String blockState, Long blockIndex) {}
+                             String recordHash, String blockState, Long blockIndex,
+                             Long nodeMillis, Long totalMillis) {}
 
     public record NodeStatus(int node, boolean up, Long height, String headHash, boolean chainValid) {}
 }

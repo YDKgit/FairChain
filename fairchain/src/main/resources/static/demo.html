@@ -25,6 +25,7 @@
   .seat:hover { box-shadow: 0 2px 6px rgba(0,0,0,.15); }
   .seat.sel { outline: 3px solid #1f2937; outline-offset: 1px; }
   .seat b { font-size: 15px; }
+  .seat .ms { font-size: 11px; color: #555; }
   .seat.t-ISSUE { border-left-color: #9ca3af; }
   .seat.t-PURCHASE { border-left-color: #2563eb; background: #eff6ff; }
   .seat.t-CANCEL { border-left-color: #dc2626; background: #fef2f2; }
@@ -135,6 +136,7 @@
       &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드끼리 투표해 2대 이상 찬성 · 확정
     </div>
     <div id="seats" class="seats"></div>
+    <div id="timing" class="msg"></div>
   </section>
 
   <section class="wide">
@@ -455,8 +457,16 @@ function renderSeats() {
       '<b>' + seat + '번</b> <span class="type ' + r.type + '">' + TYPE_LABEL[r.type] + '</span><br>' +
       '<span class="who">' + owner + '</span> · v' + r.version + '<br>' +
       '<span class="badge ' + r.blockState + '">' + r.blockState + '</span>' +
-      (r.blockIndex != null ? ' 블록 #' + r.blockIndex : '') + '</div>';
+      (r.blockIndex != null ? ' 블록 #' + r.blockIndex : '') +
+      (r.totalMillis != null ? '<br><span class="ms">노드 ' + (r.nodeMillis ?? '-') + 'ms · 접수→확정 ' + r.totalMillis + 'ms</span>' : '') + '</div>';
   }).join('') || '<p class="msg">아직 발행된 좌석이 없어요</p>';
+  // 이번 화면의 좌석별 최신 기록 중 시간이 잡힌 것들의 평균 (FairChain이 잰 값)
+  const timed = records.filter(r => r.totalMillis != null && r.nodeMillis != null);
+  const avg = f => Math.round(timed.reduce((a, r) => a + f(r), 0) / timed.length);
+  $('timing').textContent = timed.length
+    ? '블록 확정 시간 (FairChain 측정, 좌석별 최신 기록 ' + timed.length + '건 평균) — 노드 응답 ' + avg(r => r.nodeMillis) +
+      'ms · 접수부터 확정까지 ' + avg(r => r.totalMillis) + 'ms · 가장 느린 노드 응답 ' + Math.max(...timed.map(r => r.nodeMillis)) + 'ms'
+    : '';
 }
 
 async function refreshNodes() {
