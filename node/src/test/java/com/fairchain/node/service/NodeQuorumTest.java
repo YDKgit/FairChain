@@ -70,6 +70,18 @@ class NodeQuorumTest {
     }
 
     @Test
+    void quorumIsAMajorityOfTheWholeMemberList() throws Exception {
+        // 5대 명단이면 나 + 2표 = 3표가 있어야 확정. 나 + 1표로는 안 된다
+        try (StubPeer third = new StubPeer(false); StubPeer fourth = new StubPeer(false)) {
+            String four = first.url() + "," + second.url() + "," + third.url() + "," + fourth.url();
+            NodeService five = new NodeService(blocks, pending, four, "test-secret");
+            assertFalse(five.submit(new BlockRecordDto(key(1), 1L, RECORD)).accepted());
+            third.approves = true;
+            assertTrue(five.submit(new BlockRecordDto(key(1), 1L, RECORD)).accepted());
+        }
+    }
+
+    @Test
     void sameRecordProposedAtDifferentTimesIsTheSameBlock() {
         // 노드가 꺼졌다 켜지며 같은 기록을 각자 다른 시각에 제안해도 표가 갈라지지 않아야 한다
         assertTrue(service.propose(proposal(1, ZERO, key(1), 1, 1000)));

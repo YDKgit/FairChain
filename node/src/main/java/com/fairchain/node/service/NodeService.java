@@ -54,8 +54,6 @@ public class NodeService {
 
     private static final String GENESIS = "0".repeat(64);
     private static final Pattern HEX = Pattern.compile("[0-9a-f]{64}");
-    /** 3대 중 과반 */
-    private static final int QUORUM = 2;
     private static final int PAGE = 200;
     private static final int SUBMIT_ATTEMPTS = 2;
     private static final BlockResultDto REJECTED = new BlockResultDto(false, null);
@@ -65,6 +63,8 @@ public class NodeService {
     private final RestClient http;
     private final Sha256RecordHasher hasher = new Sha256RecordHasher();
     private final List<String> peers;
+    /** 확정에 필요한 찬성 수 = 참여 노드 명단(나 + NODE_PEERS) 전체의 과반. 켜져 있는 노드 수가 아니라 명단 기준이다 */
+    private final int quorum;
     private final String secret;
 
     /** 원장(Block · pending_blocks)을 바꾸는 동작이 잡는 잠금. 다른 노드를 호출하는 동안에는 잡지 않는다 */
@@ -86,9 +86,10 @@ public class NodeService {
         this.pendingRepo = pendingRepo;
         this.peers = Arrays.stream(peers.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList();
         this.secret = secret;
-        if (this.peers.size() != 2) {
-            throw new IllegalStateException("Exactly two peers required for three-node demo");
+        if (this.peers.size() < 2) {
+            throw new IllegalStateException("At least two peers required (three or more nodes)");
         }
+        this.quorum = (this.peers.size() + 1) / 2 + 1;     // 3대 → 2, 5대 → 3, 10대 → 6
         // FairChain의 노드 호출 제한(2초) 안에 한 번의 합의가 끝나도록 노드 간 호출은 짧게 끊는다
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(peerTimeoutMs);
@@ -171,7 +172,7 @@ public class NodeService {
                 approvers.add(peer);
             }
         }
-        if (!decided && 1 + approvers.size() < QUORUM) {
+        if (!decided && 1 + approvers.size() < quorum) {
             return false;
         }
         Long index = proposal.blockIndex();

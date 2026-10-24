@@ -165,3 +165,9 @@ FairChain 쪽 코드는 바꾸지 않았다. 노드 주소 · 포트 · `X-Node-
 - 테스트 `sameRecordProposedAtDifferentTimesIsTheSameBlock` 추가. 위 재현 순서로 실제 노드 3대를 돌려 확인: 셋 다 켜자 바로 확정, 이후 기록도 3대 일치
 
 블록 해시 형식이 바뀌었으므로 기존 노드 DB와 섞지 말고 블록을 초기화하고 시작한다.
+
+### 8-2. 확정 기준을 명단 기준 과반으로 (10/24)
+
+`QUORUM = 2`(3대 전용)와 "peers는 정확히 2개" 검사를 없애고, 확정에 필요한 찬성 수를 **참여 노드 명단(나 + NODE_PEERS) 전체의 과반**으로 계산한다. 3대 → 2표(지금과 같음), 5대 → 3표, 10대 → 6표. 켜져 있는 노드 수가 아니라 명단 기준이라, 꺼진 노드가 있어도 기준은 낮아지지 않는다. 테스트 `quorumIsAMajorityOfTheWholeMemberList` 추가 (node 33개 통과).
+
+측정용 `scripts/bench-nodes.sh` (맥 · zsh): 노드 N대를 9101부터 띄우고(`data/bench`, 시연용 노드와 별개) 기록을 하나씩 보내 확정 시간을 잰다. `start N` · `run 건수` · `kill 번호` · `status` · `stop`.
