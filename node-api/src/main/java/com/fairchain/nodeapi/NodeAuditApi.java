@@ -26,8 +26,8 @@ public interface NodeAuditApi {
 
     /** 저장된 블록을 fromIndex번부터 번호 순으로 (최대 limit개, 200개까지) — 점검 화면용 */
     @GetMapping(BLOCKS)
-    List<BlockDto> blocks(@RequestParam("from") Long fromIndex,
-                          @RequestParam(value = "limit", defaultValue = "50") int limit);
+    List<BlockDto> ledgerBlocks(@RequestParam("from") Long fromIndex,
+                                @RequestParam(value = "limit", defaultValue = "50") int limit);
 
     static String proofPath(String recordKey) {
         return PROOF.replace("{recordKey}", recordKey);

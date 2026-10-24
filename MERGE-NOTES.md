@@ -144,7 +144,7 @@ FairChain 쪽 코드는 바꾸지 않았다. 노드 주소 · 포트 · `X-Node-
 블록체인이라고 설명하려면 노드끼리 합의하는 쪽이 맞고, 꺼졌던 노드의 따라잡기가 필요해서 `7e3e859`를 되돌렸다. 7번 내용(3대 중 2대 찬성, 스스로 따라잡기, 깨진 노드 투표 중단)이 다시 기준이다. `docs/design-change/`는 같이 삭제됐다. 설계명세서(SD-0302-03)는 고치지 않아도 된다.
 
 10/15 이후 변경과 합친 것
-- 점검 화면용 블록 목록(`NodeAuditApi.blocks`, `/node/ledger/blocks`)은 그대로 둔다. 따라잡기용 조회는 이름이 겹쳐 `NodeConsensusApi.committedBlocks`로 바꿨다 (경로 `/node/consensus/blocks`는 그대로)
+- 점검 화면용 블록 목록(10/15)과 따라잡기용 블록 조회(`e7a9a18`)의 메서드 이름이 둘 다 `blocks`라 겹쳤다. 되살린 합의 코드는 그대로 두고, 점검 화면용을 `NodeAuditApi.ledgerBlocks`로 바꿨다 (경로 `/node/ledger/blocks`는 그대로라 점검 화면은 영향 없음)
 - `scripts/run-local.ps1`: 노드마다 `NODE_PEERS`(나머지 두 노드 주소)를 넘긴다. IntelliJ로 띄울 때도 노드 2 · 3에는 꼭 넣어야 한다 (기본값은 노드 1 기준)
 - 블록 해시에 시각이 다시 들어간다 → 독립 노드 버전으로 만든 노드 DB와 섞어 쓰지 말고 블록을 초기화하고 시작한다
 

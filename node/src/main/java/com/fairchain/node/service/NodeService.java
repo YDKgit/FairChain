@@ -300,7 +300,7 @@ public class NodeService {
     }
 
     /** 다른 노드가 따라잡을 수 있게 확정 블록을 번호 순으로 내준다. 체인이 깨진 노드는 내주지 않는다 */
-    public List<BlockProposalDto> committedBlocks(Long fromIndex, int limit) {
+    public List<BlockProposalDto> blocks(Long fromIndex, int limit) {
         if (fromIndex == null || fromIndex < 1 || chainBroken) {
             return List.of();
         }
@@ -402,7 +402,7 @@ public class NodeService {
     }
 
     /** 저장된 블록을 번호 순으로 그대로 보여 준다 (조작된 블록도 그대로) */
-    public List<BlockDto> blocks(Long fromIndex, int limit) {
+    public List<BlockDto> ledgerBlocks(Long fromIndex, int limit) {
         if (fromIndex == null) {
             return List.of();
         }

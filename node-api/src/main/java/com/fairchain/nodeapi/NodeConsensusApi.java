@@ -40,8 +40,8 @@ public interface NodeConsensusApi {
 
     /** 확정된 블록을 fromIndex번부터 번호 순으로 조회 — 뒤처진 노드가 따라잡을 때 사용 */
     @GetMapping(BLOCKS)
-    List<BlockProposalDto> committedBlocks(@RequestParam("from") Long fromIndex,
-                                           @RequestParam(value = "limit", defaultValue = "200") int limit);
+    List<BlockProposalDto> blocks(@RequestParam("from") Long fromIndex,
+                                  @RequestParam(value = "limit", defaultValue = "200") int limit);
 
     static String decisionPath(Long blockIndex) {
         return DECISION.replace("{blockIndex}", String.valueOf(blockIndex));

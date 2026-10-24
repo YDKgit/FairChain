@@ -64,10 +64,10 @@ class NodeServiceTest {
   Block first=block(1,ZERO,KEY,1,RECORD,1000);
   Block second=block(2,first.blockHash,"c".repeat(64),1,"d".repeat(64),2000);
   when(repo.findByBlockIndexGreaterThanEqualOrderByBlockIndexAsc(eq(2L),any())).thenReturn(List.of(second));
-  var listed=service.blocks(2L,10);
+  var listed=service.ledgerBlocks(2L,10);
   assertEquals(List.of(2L),listed.stream().map(b->b.blockIndex()).toList());
   assertEquals(first.blockHash,listed.get(0).prevBlockHash());
-  assertTrue(service.blocks(null,10).isEmpty());
+  assertTrue(service.ledgerBlocks(null,10).isEmpty());
  }
  @Test void verifiesValidGenesisRecord() {
   Block b=block(1,ZERO,KEY,1,RECORD,1000);

@@ -203,7 +203,7 @@ class NodeQuorumTest {
         Block head = blocks.findById(2L).orElseThrow();
         assertFalse(service.propose(proposal(3, head.blockHash, key(3), 1, 3000)));
         assertFalse(service.submit(new BlockRecordDto(key(3), 1L, RECORD)).accepted());
-        assertTrue(service.committedBlocks(1L, 10).isEmpty());
+        assertTrue(service.blocks(1L, 10).isEmpty());
         assertFalse(service.ledgerStatus().chainValid());
         assertEquals(0, pending.count());
         assertEquals(2, blocks.count());

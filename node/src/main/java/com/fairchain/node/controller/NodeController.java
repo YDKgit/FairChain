@@ -12,11 +12,11 @@ import org.springframework.web.bind.annotation.*;
  @Override public BlockResultDto retryPrepared(Long blockIndex,String blockHash){return service.retryPrepared(blockIndex,blockHash);}
  @Override public BlockProofDto proof(String recordKey){return service.proof(recordKey);}
  @Override public NodeLedgerStatusDto ledgerStatus(){return service.ledgerStatus();}
- @Override public java.util.List<BlockDto> blocks(Long fromIndex,int limit){return service.blocks(fromIndex,limit);}
+ @Override public java.util.List<BlockDto> ledgerBlocks(Long fromIndex,int limit){return service.ledgerBlocks(fromIndex,limit);}
  @Override public BlockResultDto submitRecord(BlockRecordDto dto){return service.submit(dto);}
  @Override public BlockVerifyResultDto verifyRecord(BlockVerifyDto dto){return service.verify(dto);}
  @Override public BlockBatchVerifyResponseDto verifyBatch(BlockBatchVerifyRequestDto dto){return service.batch(dto);}
  @Override public boolean receiveProposal(BlockProposalDto dto){return service.propose(dto);}
  @Override public boolean confirmBlock(Long blockIndex,String blockHash){return service.confirm(blockIndex,blockHash);}
- @Override public java.util.List<BlockProposalDto> committedBlocks(Long fromIndex,int limit){return service.committedBlocks(fromIndex,limit);}
+ @Override public java.util.List<BlockProposalDto> blocks(Long fromIndex,int limit){return service.blocks(fromIndex,limit);}
 }
