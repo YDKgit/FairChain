@@ -6,10 +6,11 @@
 set -e
 cd "${0:a:h}/.."
 i=$1
-[[ $i == [123] ]] || { echo "사용법: $0 <1|2|3> [--wipe]"; exit 1; }
+[[ $i == <1-99> ]] || { echo "사용법: $0 <노드 번호> [--wipe]"; exit 1; }
+port=$((9000 + i))
 db=${NODE_DB:-./data/node$i}
-if nc -z localhost 900$i 2>/dev/null; then
-  echo "노드${i}(:900$i)가 아직 켜져 있어요. 그 터미널에서 Ctrl+C로 끈 뒤 다시 실행하세요."; exit 1
+if nc -z localhost $port 2>/dev/null; then
+  echo "노드${i}(:$port)가 아직 켜져 있어요. 그 터미널에서 Ctrl+C로 (또는 ./scripts/demo-nodes.sh stop $i 로) 끈 뒤 다시 실행하세요."; exit 1
 fi
 if [[ $2 == --wipe ]]; then
   rm -f "$db.mv.db" "$db.trace.db"
