@@ -246,7 +246,8 @@ public class NodeService {
             }
             Optional<PendingBlock> pending = currentPending();
             if (pending.isPresent()) {
-                return toProposal(pending.get()).equals(p);     // 번호 하나에 표는 하나
+                // 번호 하나에 표는 하나. 블록 해시에 시각이 없으므로, 같은 기록을 다른 노드가 다른 시각에 제안해도 같은 블록이다
+                return pending.get().blockHash.equals(p.blockHash());
             }
             pendingRepo.saveAndFlush(toPending(p));
             return true;
@@ -500,9 +501,13 @@ public class NodeService {
 
     // ------------------------------------------------------------------ 내부 도구
 
+    /**
+     * 블록 해시에는 제안 시각을 넣지 않는다. 같은 번호에 같은 기록을 노드마다 다른 시각에 제안하면(노드가 꺼졌다 켜지며 재시도)
+     * 시각이 들어간 해시는 서로 달라져 각자 자기 제안에만 투표하고 영원히 확정되지 않는다. 시각은 블록에 기록만 한다.
+     */
     private String hash(BlockProposalDto p) {
         return hasher.hash(p.blockIndex().toString(), p.prevBlockHash(), p.recordKey(), p.version().toString(),
-                p.recordHash(), p.timestamp().toString());
+                p.recordHash());
     }
 
     private long next() {
@@ -550,8 +555,7 @@ public class NodeService {
                 && Objects.equals(p.recordKey(), b.recordKey)
                 && Objects.equals(p.version(), b.version)
                 && Objects.equals(p.recordHash(), b.recordHash)
-                && Objects.equals(p.prevBlockHash(), b.prevBlockHash)
-                && Objects.equals(p.timestamp(), b.timestamp.toInstant(ZoneOffset.UTC).toEpochMilli());
+                && Objects.equals(p.prevBlockHash(), b.prevBlockHash);
     }
 
     private BlockProposalDto toProposal(PendingBlock p) {

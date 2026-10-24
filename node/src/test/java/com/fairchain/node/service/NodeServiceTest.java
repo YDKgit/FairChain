@@ -18,7 +18,7 @@ class NodeServiceTest {
  private final Sha256RecordHasher hash=new Sha256RecordHasher();
  private static final String KEY="a".repeat(64), RECORD="b".repeat(64), ZERO="0".repeat(64);
  private Block block(long index,String prev,String key,long version,String digest,long timestamp) {
-  String blockHash=hash.hash(Long.toString(index),prev,key,Long.toString(version),digest,Long.toString(timestamp));
+  String blockHash=hash.hash(Long.toString(index),prev,key,Long.toString(version),digest);
   return new Block(index,prev,key,version,digest,LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp),ZoneOffset.UTC),blockHash);
  }
  /** 체인 전체 검사가 읽는 묶음 조회를 준비한다 */

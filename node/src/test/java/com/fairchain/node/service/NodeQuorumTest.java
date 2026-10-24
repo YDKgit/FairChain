@@ -53,7 +53,7 @@ class NodeQuorumTest {
     }
 
     private BlockProposalDto proposal(long index, String prev, String key, long version, long timestamp) {
-        String hash = hasher.hash(Long.toString(index), prev, key, Long.toString(version), RECORD, Long.toString(timestamp));
+        String hash = hasher.hash(Long.toString(index), prev, key, Long.toString(version), RECORD);
         return new BlockProposalDto(index, prev, key, version, RECORD, timestamp, hash);
     }
 
@@ -67,6 +67,14 @@ class NodeQuorumTest {
             prev = block.blockHash();
         }
         return chain;
+    }
+
+    @Test
+    void sameRecordProposedAtDifferentTimesIsTheSameBlock() {
+        // 노드가 꺼졌다 켜지며 같은 기록을 각자 다른 시각에 제안해도 표가 갈라지지 않아야 한다
+        assertTrue(service.propose(proposal(1, ZERO, key(1), 1, 1000)));
+        assertTrue(service.propose(proposal(1, ZERO, key(1), 1, 5000)));
+        assertFalse(service.propose(proposal(1, ZERO, key(2), 1, 1000)));     // 같은 번호의 다른 기록에는 반대
     }
 
     @Test
