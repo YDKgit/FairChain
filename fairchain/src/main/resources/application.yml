@@ -35,3 +35,4 @@ fairchain:
     timeout: 2s
   block:
     process-interval-ms: 500    # 블록 기록 대기 줄 처리 주기
+    sync-interval-ms: 5000      # 노드 점검 주기: 뒤처진 노드에 빠진 기록을 다시 보내고, 응답 없던 노드를 다시 넣는다

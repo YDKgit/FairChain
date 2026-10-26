@@ -121,8 +121,9 @@ class NodeClusterTest {
     void sameRecordsInTheSameOrderGiveIdenticalChainsOnEveryNode() {
         for (int ticket = 1; ticket <= 5; ticket++) {
             List<BlockResultDto> responses = broadcast(ticket);
-            assertEquals(List.of(new BlockResultDto(true, (long) ticket)), responses.stream().distinct().toList(),
-                    "3대가 같은 블록 번호로 승인");
+            assertEquals(1, responses.stream().distinct().count(), "3대가 같은 블록(번호 · 해시)으로 승인");
+            assertTrue(responses.get(0).accepted());
+            assertEquals((long) ticket, responses.get(0).blockIndex());
         }
 
         NodeLedgerStatusDto first = status(0);
@@ -133,7 +134,9 @@ class NodeClusterTest {
         }
 
         // 같은 기록을 다시 보내도 새 블록이 생기지 않는다
-        assertEquals(List.of(new BlockResultDto(true, 3L)), broadcast(3).stream().distinct().toList());
+        List<BlockResultDto> again = broadcast(3);
+        assertEquals(1, again.stream().distinct().count());
+        assertEquals(3L, again.get(0).blockIndex());
         assertEquals(5L, status(0).height());
     }
 
@@ -142,8 +145,13 @@ class NodeClusterTest {
         broadcast(1);
 
         stop(2);
-        assertEquals(List.of(new BlockResultDto(true, 2L), new BlockResultDto(true, 2L)), broadcast(2));
-        assertEquals(List.of(new BlockResultDto(true, 3L), new BlockResultDto(true, 3L)), broadcast(3));
+        List<BlockResultDto> second = broadcast(2);
+        assertEquals(2, second.size());
+        assertEquals(second.get(0), second.get(1));
+        assertEquals(2L, second.get(0).blockIndex());
+        List<BlockResultDto> third = broadcast(3);
+        assertEquals(third.get(0), third.get(1));
+        assertEquals(3L, third.get(0).blockIndex());
         assertTrue(verified(0, 3));
         assertTrue(verified(1, 3));
 
@@ -172,9 +180,9 @@ class NodeClusterTest {
         assertTrue(verified(2, 1));
 
         List<BlockResultDto> responses = broadcast(2);
-        assertEquals(new BlockResultDto(true, 2L), responses.get(0));
+        assertEquals(2L, responses.get(0).blockIndex());
         assertFalse(responses.get(1).accepted(), "체인이 깨진 노드는 새 기록을 받지 않는다");
-        assertEquals(new BlockResultDto(true, 2L), responses.get(2));
+        assertEquals(responses.get(0), responses.get(2), "정상인 두 노드는 같은 블록");
         assertNotEquals(status(0).headHash(), status(1).headHash());
     }
 

@@ -49,7 +49,7 @@ public class BlockRecordService {
             try {
                 result = blockRecordAccess.submitRecord(dto);
             } catch (RuntimeException e) {
-                result = new BlockResultDto(false, null);
+                result = new BlockResultDto(false, null, null);
             }
             if (!result.accepted()) {
                 blockQueueRepository.pushFront(dto);
@@ -58,6 +58,12 @@ public class BlockRecordService {
             }
             confirm(dto, result.blockIndex());
         }
+    }
+
+    /** 노드 주기 점검 — 새 기록이 없어도 꺼졌다 켜진 노드가 빠진 블록을 받아 따라잡는다 */
+    @Scheduled(fixedDelayString = "${fairchain.block.sync-interval-ms:5000}")
+    public void syncNodes() {
+        blockRecordAccess.catchUpNodes();
     }
 
     @Transactional

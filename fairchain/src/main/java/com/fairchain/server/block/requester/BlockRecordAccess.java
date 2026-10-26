@@ -12,4 +12,8 @@ public interface BlockRecordAccess {
 
     /** 노드 3대 중 2대 이상 같은 결과. 다수가 없으면 NODE_UNAVAILABLE */
     BlockVerifyResultDto verifyRecord(BlockVerifyDto dto);
+
+    /** 주기 점검: 꺼졌다 켜진 노드 · 뒤처진 노드에 빠진 기록을 확정 순서대로 다시 보낸다 */
+    default void catchUpNodes() {
+    }
 }

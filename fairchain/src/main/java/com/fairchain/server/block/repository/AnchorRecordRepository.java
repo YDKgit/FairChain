@@ -21,6 +21,13 @@ public interface AnchorRecordRepository extends JpaRepository<AnchorRecord, Long
 
     List<AnchorRecord> findByBlockStateOrderByIdAsc(BlockState blockState);
 
+    /** 노드 따라잡기: 확정된 마지막 블록 번호 (확정된 기록이 없으면 null) */
+    @Query("select max(a.blockIndex) from AnchorRecord a where a.blockState = com.fairchain.api.dto.BlockState.CONFIRMED")
+    Long findMaxConfirmedBlockIndex();
+
+    /** 노드 따라잡기: 블록 번호 구간의 확정 기록 (번호 순) */
+    List<AnchorRecord> findByBlockStateAndBlockIndexBetweenOrderByBlockIndexAsc(BlockState blockState, Long from, Long to);
+
     /** 시연 페이지: 한 공연의 모든 기록 (오래된 순) */
     List<AnchorRecord> findByClientIdAndEventIdOrderByIdAsc(String clientId, Long eventId);
 

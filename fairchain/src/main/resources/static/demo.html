@@ -132,14 +132,14 @@
     <h2>좌석 · 블록 기록 상태 <span class="msg">(1초마다 새로고침 · 좌석을 누르면 ② 예매와 취소 칸 둘 다, ④ 체크인에 그 좌석이 채워져요)</span></h2>
     <div class="legend">
       좌석 상태 <span class="type ISSUE">판매 전</span><span class="type PURCHASE">예매됨</span><span class="type CANCEL">취소됨</span><span class="type CHECKIN">입장함</span>
-      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드끼리 투표해 2대 이상 찬성 · 확정
+      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드 2대 이상이 같은 블록을 만들어 확정
     </div>
     <div id="seats" class="seats"></div>
   </section>
 
   <section class="wide">
     <h2>③ 노드 3대 블록체인</h2>
-    <div class="consensus">FairChain → 노드 1대에 제출 → <b>노드끼리 제안 · 투표</b> → 2대 이상 찬성하면 확정 &nbsp;·&nbsp; 꺼졌던 노드는 켜지면 다른 노드에서 빠진 블록을 받아 <b>스스로 따라잡음</b> &nbsp;·&nbsp; 체인이 깨진 노드는 <b>투표에서 빠짐</b></div>
+    <div class="consensus">FairChain → 노드 3대에 동시에 전송 → 노드마다 자기 장부에 블록 추가 → <b>FairChain이 다수결</b> (2대 이상 같은 블록이면 확정) &nbsp;·&nbsp; 꺼졌던 노드는 켜지면 FairChain이 빠진 블록을 순서대로 다시 보내 <b>따라잡음</b> &nbsp;·&nbsp; 체인이 깨진 노드는 <b>투표에서 빠짐</b></div>
     <div id="nodes" class="nodes"></div>
     <div id="nodeSummary" class="msg"></div>
   </section>
@@ -254,7 +254,7 @@ async function issueSeats() {
                  recordHash: short(list[0].recordHash) }, '… 좌석 ' + count + '개'] };
   try {
     await api('POST', '/api/admin/seats/issue', { eventId: ev, records: list });
-    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드로 →\n노드끼리 투표, 2대 이상 찬성하면 CONFIRMED');
+    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드 3대로 →\nFairChain이 다수결, 2대 이상 같은 블록이면 CONFIRMED');
     show('issueMsg', start + '번 ~ ' + (start + count - 1) + '번 좌석 발행 요청 완료 → 블록 기록 대기 중');
   } catch (e) { showFlow(ticketText, '/api/admin/seats/issue', sent, e.message); show('issueMsg', e.message, true); }
   refresh();
@@ -273,7 +273,7 @@ async function purchase(seat, user) {
                  version: body.version, recordHash: short(body.recordHash) };
   try {
     const res = await api('POST', '/api/records', body);
-    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED');
+    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 노드 3대에 전송, 2대 이상 같은 블록 → CONFIRMED');
     showBuy(seatName(seat) + ' → ' + who(user) + ' 예매 완료' + (res.soldOut ? ' (매진)' : ''));
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }
@@ -295,7 +295,7 @@ async function cancel(seat) {
   try {
     const res = await api('POST', '/api/records', body);
     showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version +
-      ' 취소 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
+      ' 취소 기록 저장(PENDING)\n→ 노드 3대에 전송, 2대 이상 같은 블록 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
     showBuy(seatName(seat) + ' ' + who(user) + ' 예매 취소 완료 → 다시 판매 가능');
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }

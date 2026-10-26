@@ -40,7 +40,7 @@ public class NodeService {
     private static final String GENESIS = "0".repeat(64);
     private static final Pattern HEX = Pattern.compile("[0-9a-f]{64}");
     private static final int PAGE = 200;
-    private static final BlockResultDto REJECTED = new BlockResultDto(false, null);
+    private static final BlockResultDto REJECTED = new BlockResultDto(false, null, null);
 
     private final BlockRepository repo;
     private final Sha256RecordHasher hasher = new Sha256RecordHasher();
@@ -77,7 +77,7 @@ public class NodeService {
             if (existing.isPresent()) {
                 Block latest = existing.get();
                 if (latest.version.equals(dto.version()) && latest.recordHash.equals(dto.recordHash())) {
-                    return new BlockResultDto(true, latest.blockIndex);
+                    return new BlockResultDto(true, latest.blockIndex, latest.blockHash);
                 }
                 if (dto.version() <= latest.version) {
                     return REJECTED;
@@ -90,7 +90,7 @@ public class NodeService {
                     LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS),
                     hash(index, prev, dto.recordKey(), dto.version(), dto.recordHash()));
             repo.saveAndFlush(block);
-            return new BlockResultDto(true, index);
+            return new BlockResultDto(true, index, block.blockHash);
         }
     }
 

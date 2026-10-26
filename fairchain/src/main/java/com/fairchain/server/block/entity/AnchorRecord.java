@@ -20,7 +20,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "anchor_record",
         uniqueConstraints = @UniqueConstraint(name = "uq_key_version", columnNames = {"record_key", "version"}),
-        indexes = @Index(name = "idx_user_list", columnList = "user_id, event_id"))
+        indexes = {@Index(name = "idx_user_list", columnList = "user_id, event_id"),
+                   @Index(name = "idx_block_index", columnList = "block_index")})
 public class AnchorRecord {
 
     @Id
