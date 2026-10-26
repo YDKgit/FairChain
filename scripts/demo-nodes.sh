@@ -1,6 +1,7 @@
 #!/bin/zsh
 # 시연용 노드 N대를 터미널 창 없이 한 번에 켜고 끈다. 장부는 data/node1~N, 로그는 data/nodeN.log
 #   ./scripts/demo-nodes.sh start 10     노드 10대 켜기 (9001~9010). 이미 장부가 있는 노드는 이어서, 새 노드는 다른 노드에서 따라잡음
+#   ./scripts/demo-nodes.sh start 3 --mem  장부를 메모리에 (끄면 사라짐) + 웹 콘솔 http://localhost:9001/h2-console (JDBC URL jdbc:h2:mem:node1, sa)
 #   ./scripts/demo-nodes.sh stop 3       노드3만 끄기          (시연 ⑦ ⑧)
 #   ./scripts/demo-nodes.sh up 3         노드3만 다시 켜기
 #   ./scripts/demo-nodes.sh status       노드별 블록 수 · 체인 상태
@@ -19,8 +20,10 @@ launch() {   # $1 = 번호, $2 = 전체 대수
   local i=$1 n=$2 peers=()
   for j in $(seq 1 $n); do [[ $j != $i ]] && peers+=("http://localhost:$(port $j)"); done
   if nc -z localhost $(port $i) 2>/dev/null; then echo "노드${i}(:$(port $i))는 이미 켜져 있어요"; return; fi
+  local mem=()
+  [[ -f $DIR/nodes.mem ]] && mem=("--spring.datasource.url=jdbc:h2:mem:node$i;DB_CLOSE_DELAY=-1" --spring.h2.console.enabled=true)
   NODE_PORT=$(port $i) NODE_DB=$DIR/node$i NODE_PEERS=${(j:,:)peers} \
-    nohup java -Xmx256m -jar node/build/libs/node-0.0.1-SNAPSHOT.jar >> $DIR/node$i.log 2>&1 &
+    nohup java -Xmx256m -jar node/build/libs/node-0.0.1-SNAPSHOT.jar $mem >> $DIR/node$i.log 2>&1 &
   echo $! > $DIR/node$i.pid
 }
 
@@ -34,10 +37,12 @@ start)
   n=${2:-3}
   [[ $n -ge 3 ]] || { echo "노드는 3대 이상"; exit 1; }
   echo $n > $DIR/nodes.count
+  if [[ $3 == --mem ]]; then touch $DIR/nodes.mem; else rm -f $DIR/nodes.mem; fi
   for i in $(seq 1 $n); do launch $i $n; done
   echo "노드 ${n}대 켜는 중..."
   for i in $(seq 1 $n); do wait_up $i; done
   echo "켜짐: $(port 1) ~ $(port $n) (과반 $(( n / 2 + 1 ))표)"
+  [[ -f $DIR/nodes.mem ]] && echo "장부는 메모리 · 웹 콘솔: http://localhost:$(port 1)/h2-console  (JDBC URL jdbc:h2:mem:node1, User sa, 비밀번호 없음)"
   echo "FairChain은 이렇게 켜세요:"
   echo "  java -jar fairchain/build/libs/fairchain-0.0.1-SNAPSHOT.jar --fairchain.nodes.urls=$($0 urls)"
   ;;
@@ -50,7 +55,7 @@ stop)
     kill $(cat $DIR/node$2.pid) 2>/dev/null && echo "노드${2}(:$(port $2)) 끔" || echo "노드${2}는 이미 꺼져 있어요"
   else
     for i in $(seq 1 $(count)); do kill $(cat $DIR/node$i.pid 2>/dev/null) 2>/dev/null || true; done
-    echo "노드를 모두 껐어요 (장부는 그대로)"
+    [[ -f $DIR/nodes.mem ]] && echo "노드를 모두 껐어요 (메모리 장부라 기록도 사라짐)" || echo "노드를 모두 껐어요 (장부는 그대로)"
   fi
   ;;
 status)
@@ -65,6 +70,6 @@ urls)
   n=$(count); list=(); for i in $(seq 1 $n); do list+=("http://localhost:$(port $i)"); done; echo ${(j:,:)list}
   ;;
 *)
-  sed -n '2,9p' $0
+  sed -n '2,10p' $0
   ;;
 esac
