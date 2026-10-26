@@ -171,3 +171,29 @@ FairChain 쪽 코드는 바꾸지 않았다. 노드 주소 · 포트 · `X-Node-
 `QUORUM = 2`(3대 전용)와 "peers는 정확히 2개" 검사를 없애고, 확정에 필요한 찬성 수를 **참여 노드 명단(나 + NODE_PEERS) 전체의 과반**으로 계산한다. 3대 → 2표(지금과 같음), 5대 → 3표, 10대 → 6표. 켜져 있는 노드 수가 아니라 명단 기준이라, 꺼진 노드가 있어도 기준은 낮아지지 않는다. 테스트 `quorumIsAMajorityOfTheWholeMemberList` 추가 (node 33개 통과).
 
 측정용 `scripts/bench-nodes.sh` (맥 · zsh): 노드 N대를 9101부터 띄우고(`data/bench`, 시연용 노드와 별개) 기록을 하나씩 보내 확정 시간을 잰다. `start N` · `run 건수` · `kill 번호` · `status` · `stop`.
+
+---
+
+## 9. 비교용 브랜치 `fairchain-vote` — FairChain에서 다수결 (10/26, 노드 담당)
+
+`demo-page`(노드끼리 투표)와 처리 속도를 비교하려고 만든 브랜치다. `demo-page`를 기준으로 노드 부분만 독립 노드 방식(`7e3e859`)으로 바꿨다. 시연 페이지 · 점검 화면 · 예제서버 · FairChain의 나머지 코드는 같다.
+
+바뀐 것
+- `node` · `node-api`: 노드끼리 통신하지 않는다. 각 노드는 자기 DB만 보고 블록을 추가해 결과를 돌려준다. `NodeConsensusApi` · `BlockProposalDto` · `PendingBlock` 없음. 점검 화면용 메서드 이름 `ledgerBlocks`는 그대로
+- `fairchain` `BlockRecordRequester.submitRecord`: 노드 3대에 **동시에** 보내고(노드마다 스레드 1개) 2대 이상 같은 결과면 확정한다. 3대의 응답(또는 제한 시간 2초)을 받은 뒤에 다음 기록을 보내므로 노드마다 기록 순서가 같다. 검증(`verifyRecord`)은 `demo-page`와 같다
+- `scripts/run-local.ps1`: `NODE_PEERS` 없음
+- `scripts/bench_confirm.py` 추가: 지금 브랜치의 jar로 노드 3대 + FairChain을 띄우고, FairChain을 거쳐 기록 N건이 모두 CONFIRMED가 될 때까지 시간을 잰다. 두 브랜치에서 빌드 후 같은 명령으로 돌린다 (`demo-page`에서는 이 파일을 복사해서 실행)
+
+측정 (같은 PC, 기록 200건, 2회 평균, `python scripts/bench_confirm.py --records 200`)
+
+| | `demo-page` (노드끼리 투표) | `fairchain-vote` (FairChain 다수결) |
+|---|---|---|
+| 좌석 발행 200건 → 모두 확정 | 31.7초 (1건당 159 ms) | 8.0초 (1건당 40 ms) |
+| 예매 200건 → 모두 확정 | 23.9초 (1건당 120 ms) | 5.4초 (1건당 27 ms) |
+
+두 브랜치 모두 끝난 뒤 노드 3대의 마지막 블록 해시가 같았다. 한 PC에서 잰 값이라 절대값보다 차이(약 4배)를 보면 된다.
+
+남은 제약 (이 브랜치)
+- 꺼졌던 노드는 스스로 따라잡지 못한다. 놓친 기록을 FairChain이 기록 사본(`anchor_record`)에서 순서대로 다시 보내 주는 기능이 필요하다 (아직 없음). 그래서 시연 페이지의 "노드 끄고 다시 켜기" 장면은 이 브랜치에서 맞지 않는다
+- `scripts/bench-nodes.sh` · `demo-nodes.sh`는 노드끼리 투표하는 방식 기준이다. 이 브랜치에서는 `bench_confirm.py`를 쓴다
+- 설계명세서(SD-0302-03)는 노드 간 합의 방식이다. 이 방식으로 정하면 설계명세서를 고쳐야 한다
