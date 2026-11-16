@@ -13,7 +13,10 @@ public interface BlockRecordApi {
     String RECORDS = "/node/records";
     String VERIFY = "/node/records/verify";
 
-    /** 블록 기록 요청 — 받은 노드가 블록을 만들어 다른 노드에 제안하고 2/3 동의 시 확정 */
+    /**
+     * 블록 기록 요청 — 아무 리더 층 노드에나 보내면 된다. 팔로워는 Raft 리더에게 넘기고, 리더가 블록을 만들어
+     * Raft 로그로 복제한다. 과반이 저장하면 확정. 같은 기록(recordKey + version)을 다시 보내면 기존 블록 번호를 돌려준다.
+     */
     @PostMapping(RECORDS)
     BlockResultDto submitRecord(@RequestBody BlockRecordDto dto);
 

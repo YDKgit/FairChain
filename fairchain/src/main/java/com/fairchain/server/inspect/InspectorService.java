@@ -1,9 +1,11 @@
 package com.fairchain.server.inspect;
 
 import com.fairchain.api.http.HttpRequester;
+import com.fairchain.nodeapi.NodeAdminApi;
 import com.fairchain.nodeapi.NodeAuditApi;
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
+import com.fairchain.nodeapi.dto.NodeStatusDto;
 import com.fairchain.server.block.repository.AnchorRecordRepository;
 import com.fairchain.server.block.repository.BlockQueueRepository;
 import com.fairchain.server.common.config.FairChainProperties;
@@ -61,8 +63,9 @@ public class InspectorService {
     public record DbSnapshot(List<EventRow> events, List<AnchorRow> anchorRecords, List<AdmissionRow> admissions,
                              long blockQueueSize) {}
 
+    /** @param raft 리더 층 Raft 상태 (역할 · 임기 · 제외 · 판정 기록). 예전 노드면 null */
     public record NodeView(String url, boolean reachable, NodeLedgerStatusDto status, List<BlockDto> blocks,
-                           String error) {}
+                           String error, NodeStatusDto raft) {}
 
     /** 이 고객사의 요청 + 인증 전에 거절된 요청 (최신순) */
     public List<RequestLogEntry> requests(String clientId) {
@@ -108,9 +111,15 @@ public class InspectorService {
                         : node.get(NodeAuditApi.BLOCKS + "?from=" + from + "&limit=" + BLOCKS, BlockDto[].class);
                 List<BlockDto> newestFirst = new ArrayList<>(Arrays.asList(blocks == null ? new BlockDto[0] : blocks));
                 Collections.reverse(newestFirst);
-                views.add(new NodeView(url, true, status, newestFirst, null));
+                NodeStatusDto raft;
+                try {
+                    raft = node.get(NodeAdminApi.STATUS, NodeStatusDto.class);
+                } catch (RuntimeException e) {
+                    raft = null;
+                }
+                views.add(new NodeView(url, true, status, newestFirst, null, raft));
             } catch (RuntimeException e) {
-                views.add(new NodeView(url, false, null, List.of(), e.getMessage()));
+                views.add(new NodeView(url, false, null, List.of(), e.getMessage(), null));
             }
         }
         return views;

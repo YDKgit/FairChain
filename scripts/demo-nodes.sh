@@ -14,12 +14,17 @@ mkdir -p $DIR
 
 port() { echo $((BASE + $1)); }
 count() { cat $DIR/nodes.count 2>/dev/null || echo 0; }
+# raft-node: 노드 i는 리더 층 Raft 멤버 "팀문자1" (1 → A1, 2 → B1, …). 팀원까지 띄우려면 scripts/raft_nodes.py
+TEAMS=(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
+nid() { echo "${TEAMS[$1]}1"; }
 
 launch() {   # $1 = 번호, $2 = 전체 대수
-  local i=$1 n=$2 peers=()
+  local i=$1 n=$2 peers=() members=()
   for j in $(seq 1 $n); do [[ $j != $i ]] && peers+=("http://localhost:$(port $j)"); done
+  for j in $(seq 1 $n); do members+=("$(nid $j)=http://localhost:$(port $j)"); done
   if nc -z localhost $(port $i) 2>/dev/null; then echo "노드${i}(:$(port $i))는 이미 켜져 있어요"; return; fi
-  NODE_PORT=$(port $i) NODE_DB=$DIR/node$i NODE_PEERS=${(j:,:)peers} \
+  # NODE_PEERS는 예전 브랜치(demo-page)용, NODE_ID · NODE_MEMBERS는 raft-node용 — 각자 모르는 값은 무시한다
+  NODE_PORT=$(port $i) NODE_DB=$DIR/node$i NODE_PEERS=${(j:,:)peers} NODE_ID=$(nid $i) NODE_MEMBERS=${(j:,:)members} \
     nohup java -Xmx256m -jar node/build/libs/node-0.0.1-SNAPSHOT.jar >> $DIR/node$i.log 2>&1 &
   echo $! > $DIR/node$i.pid
 }

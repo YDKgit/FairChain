@@ -1,0 +1,11 @@
+FairChain
+
+이 프로젝트의 노드(node 모듈)는 다음 오픈소스 라이브러리를 수정하지 않고 의존성으로 사용한다.
+
+- MicroRaft 0.7 (io.microraft:microraft, io.microraft:microraft-store-sqlite)
+  https://github.com/MicroRaft/MicroRaft — Apache License 2.0
+  리더 층 Raft 합의(선거 · 로그 복제 · 멤버 변경 · 스냅샷)에 사용
+- jOOQ 3.16 Open Source Edition (org.jooq:jooq) — Apache License 2.0 — microraft-store-sqlite가 사용
+- SQLite JDBC (org.xerial:sqlite-jdbc) — Apache License 2.0 — Raft 상태 파일 저장
+
+Apache License 2.0 전문: https://www.apache.org/licenses/LICENSE-2.0
