@@ -11,6 +11,11 @@ JDK 17+ · Python 3 필요. 프로젝트 루트에서 (Windows PowerShell):
 .\scripts\stop-local.ps1          # 전부 종료
 ```
 
+macOS · Linux는 `./scripts/run-local.sh` (창 없이 띄우고 로그는 `data/logs/`), 끌 때는 `./scripts/stop-local.sh`.
+`--mem`(DB를 메모리에 · 노드 새 장부), `--members 2`(팀마다 팀원 노드 2대), `--no-build`, `--no-queue`. 계정은 실행이 끝나면 출력된다.
+
+부하 테스트(JMeter) 시나리오와 실행 방법은 `loadtest/README.md`.
+
 | 옵션 | 뜻 |
 |---|---|
 | `-NoBuild` | 빌드 없이 실행 |

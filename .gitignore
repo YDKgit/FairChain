@@ -23,3 +23,6 @@ logs/
 
 # 노드 · 데모용 H2 파일 DB
 data/
+
+# 부하 테스트 결과
+loadtest/results/
