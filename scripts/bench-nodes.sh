@@ -22,9 +22,13 @@ start)
   [[ -f $DIR/count ]] && { echo "이미 켜져 있어요. 먼저 '$0 stop'"; exit 1; }
   cp node/build/libs/node-0.0.1-SNAPSHOT.jar $DIR/node.jar     # 빌드 중에 jar가 바뀌어도 측정 노드는 그대로
   echo $n > $DIR/count
+  teams=(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
+  members=(); for j in $(seq 1 $n); do members+=("${teams[$j]}1=http://localhost:$(port $j)"); done
   for i in $(seq 1 $n); do
     peers=(); for j in $(seq 1 $n); do [[ $j != $i ]] && peers+=("http://localhost:$(port $j)"); done
+    # NODE_PEERS는 demo-page용, NODE_ID · NODE_MEMBERS는 raft-node용
     NODE_PORT=$(port $i) NODE_DB=$DIR/node$i NODE_SECRET=$SECRET NODE_PEERS=${(j:,:)peers} \
+      NODE_ID=${teams[$i]}1 NODE_MEMBERS=${(j:,:)members} \
       nohup java -Xmx256m -jar $DIR/node.jar > $DIR/node$i.log 2>&1 &
     echo $! > $DIR/node$i.pid
   done

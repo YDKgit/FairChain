@@ -70,9 +70,11 @@ if (Test-Port 6379) {
 Write-Host '[2/4] 노드 3대'
 foreach ($i in 1, 2, 3) {
     $port = 9000 + $i
-    # 노드끼리 제안 · 투표 · 따라잡기를 하므로 나머지 두 노드의 주소를 알려 준다
+    # 리더 층 Raft 멤버 A1 · B1 · C1. Raft 상태는 장부 옆 nodeN-raft.sqlite (NODE_PEERS는 예전 브랜치용)
     $peers = ((1, 2, 3 | Where-Object { $_ -ne $i }) | ForEach-Object { "http://localhost:$(9000 + $_)" }) -join ','
-    Start-Window "Node $i (:$port)" "`$env:NODE_PORT='$port'; `$env:NODE_PEERS='$peers'; `$env:NODE_DB='$data\node$i'; `$env:NODE_SECRET='$($s.nodeSecret)'; java -jar node\build\libs\node-0.0.1-SNAPSHOT.jar"
+    $id = @('A1', 'B1', 'C1')[$i - 1]
+    $members = 'A1=http://localhost:9001,B1=http://localhost:9002,C1=http://localhost:9003'
+    Start-Window "Node $id (:$port)" "`$env:NODE_PORT='$port'; `$env:NODE_ID='$id'; `$env:NODE_MEMBERS='$members'; `$env:NODE_PEERS='$peers'; `$env:NODE_DB='$data\node$i'; `$env:NODE_SECRET='$($s.nodeSecret)'; java -jar node\build\libs\node-0.0.1-SNAPSHOT.jar"
 }
 foreach ($i in 1, 2, 3) { Wait-Port (9000 + $i) "Node $i" }
 

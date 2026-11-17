@@ -1,15 +1,34 @@
 server:
-  port: ${NODE_PORT:9001}          # 노드 3대: 9001 · 9002 · 9003 (FairChain은 8081)
+  port: ${NODE_PORT:9001}          # 리더 층 노드 3대: 9001 · 9002 · 9003 (FairChain은 8081)
 spring:
   datasource:
-    # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 확정 블록 · 표가 남는다
+    # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 확정 블록이 남는다
     url: jdbc:h2:file:${NODE_DB:./data/node1};WRITE_DELAY=0;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: update
 node:
-  peers: ${NODE_PEERS:http://localhost:9002,http://localhost:9003}
+  id: ${NODE_ID:A1}                 # 노드 ID (영문 · 숫자 · '-' · '_'). 리더 층 Raft 멤버 이름
+  team: ${NODE_TEAM:}               # 팀(기관) ID. 비우면 ID 끝 숫자를 뗀 값 (A1 → A)
+  role: ${NODE_ROLE:leader-layer}   # leader-layer: 리더 층 Raft 멤버 · member: 투표하지 않는 팀원 사본
+  url: ${NODE_URL:}                 # 이 노드에 접속할 주소. 리더 층은 node.members 값, 팀원은 비우면 http://localhost:포트
+  team-leader: ${NODE_TEAM_LEADER:} # 팀원만: 팀 리더 ID. 비우면 node.members에서 같은 팀인 노드
+  member-sync-ms: ${NODE_MEMBER_SYNC_MS:1000}   # 팀원: 팀 리더에 등록 · 빠진 블록 받기 주기
+  # 리더 층 Raft 그룹을 처음 만들 때의 멤버 (팀 리더 노드). ID=주소, 팀을 따로 적으려면 ID@팀=주소
+  members: ${NODE_MEMBERS:A1=http://localhost:9001,B1=http://localhost:9002,C1=http://localhost:9003}
   secret: ${NODE_SECRET:local-demo-change-me}   # FairChain fairchain.nodes.api-key와 같은 값
-  peer-timeout-ms: ${NODE_PEER_TIMEOUT_MS:800}    # 노드 ↔ 노드 호출 제한 (FairChain의 노드 호출 제한 2초보다 짧게)
-  sync-interval-ms: ${NODE_SYNC_INTERVAL_MS:5000} # 주기 점검: 체인 검사 · 뒤처진 블록 따라잡기 · 남은 제안 마무리
+  key-file: ${NODE_KEY_FILE:${NODE_DB:./data/node1}.key}   # Ed25519 개인키 — H2 밖에 둔다. 없으면 처음 켤 때 만든다
+  patrol:                           # 순회 검사 (미정사항 12번) — 기본 꺼짐, 시연 설정에서만 켠다
+    enabled: ${NODE_PATROL:false}
+    blocks-per-sec: ${NODE_PATROL_BLOCKS_PER_SEC:50}
+  forward-timeout-ms: ${NODE_FORWARD_TIMEOUT_MS:1800}   # 팔로워 → 리더 전달 제한 (FairChain의 노드 호출 제한 2초보다 짧게)
+  commit-timeout-ms: ${NODE_COMMIT_TIMEOUT_MS:1500}     # 리더가 과반 저장을 기다리는 시간
+  raft:
+    store-file: ${NODE_RAFT_STORE:${NODE_DB:./data/node1}-raft.sqlite}   # 임기 · 투표 · 로그 (계획 4.7)
+    heartbeat-secs: ${NODE_RAFT_HEARTBEAT_SECS:1}                  # 미정사항 7번: 하트비트 1초
+    heartbeat-timeout-secs: ${NODE_RAFT_HEARTBEAT_TIMEOUT_SECS:4}  # 리더 소식이 4초 없으면 선거
+    election-timeout-ms: ${NODE_RAFT_ELECTION_TIMEOUT_MS:1000}
+    election-jitter-ms: ${NODE_RAFT_ELECTION_JITTER_MS:500}       # 노드마다 0~500ms를 더한다 — 후보 둘이 계속 같이 출마하지 않게 (Raft §5.2)
+    snapshot-every: ${NODE_RAFT_SNAPSHOT_EVERY:1000}               # 로그 1000개마다 스냅샷 · 앞부분 자르기 (미정사항 16번)
+    message-timeout-ms: ${NODE_RAFT_MESSAGE_TIMEOUT_MS:1000}       # Raft 메시지 HTTP 호출 제한

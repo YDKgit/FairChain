@@ -42,26 +42,52 @@ public class BlockRecordService {
         blockQueueRepository.enqueue(new BlockRecordDto(dto.recordKey(), dto.version(), dto.recordHash()));
     }
 
-    /** 대기 줄을 앞에서부터 처리. 실패하면 되돌리고 다음 주기에 재시도 (순서 유지) */
+    /** 한 기록을 이어서 보내 보는 횟수 (노드 구조 변경안 11/06 6장 · 미정사항 6번: "재전송 3번") */
+    static final int SUBMIT_ATTEMPTS = 3;
+    private static final long RETRY_PAUSE_MILLIS = 200;
+
+    /**
+     * 대기 줄을 앞에서부터 처리. 한 기록을 3번까지 보내 보고, 그래도 안 되면 맨 앞에 되돌려 다음 주기에 다시 (순서 유지).
+     * 같은 기록(recordKey + version)을 다시 보내면 노드는 이미 만든 블록 번호를 돌려주므로 블록이 둘 생기지 않는다.
+     */
     @Scheduled(fixedDelayString = "${fairchain.block.process-interval-ms:500}")
     public void processPending() {
         BlockRecordDto dto;
         while ((dto = blockQueueRepository.dequeue()) != null) {
-            BlockResultDto result;
             long started = System.nanoTime();
+            BlockResultDto result = submitWithRetry(dto);
+            long nodeMillis = (System.nanoTime() - started) / 1_000_000;   // 재전송까지 포함한 노드 응답 시간
+            if (!result.accepted()) {
+                blockQueueRepository.pushFront(dto);
+                log.warn("블록 기록 {}번 실패, 대기 줄 맨 앞에 되돌림 (다음 주기에 다시): {} v{}",
+                        SUBMIT_ATTEMPTS, dto.recordKey(), dto.version());
+                return;
+            }
+            confirm(dto, result.blockIndex(), nodeMillis);
+        }
+    }
+
+    private BlockResultDto submitWithRetry(BlockRecordDto dto) {
+        BlockResultDto result = new BlockResultDto(false, null);
+        for (int attempt = 1; attempt <= SUBMIT_ATTEMPTS; attempt++) {
             try {
                 result = blockRecordAccess.submitRecord(dto);
             } catch (RuntimeException e) {
                 result = new BlockResultDto(false, null);
             }
-            long nodeMillis = (System.nanoTime() - started) / 1_000_000;
-            if (!result.accepted()) {
-                blockQueueRepository.pushFront(dto);
-                log.warn("블록 기록 실패, 다음 주기에 재시도: {} v{}", dto.recordKey(), dto.version());
-                return;
+            if (result != null && result.accepted()) {
+                return result;
             }
-            confirm(dto, result.blockIndex(), nodeMillis);
+            if (attempt < SUBMIT_ATTEMPTS) {
+                try {
+                    Thread.sleep(RETRY_PAUSE_MILLIS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
+        return result == null ? new BlockResultDto(false, null) : result;
     }
 
     @Transactional

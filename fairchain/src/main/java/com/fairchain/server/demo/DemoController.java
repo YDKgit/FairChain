@@ -1,5 +1,8 @@
 package com.fairchain.server.demo;
 
+import com.fairchain.nodeapi.dto.NodeStatusDto;
+import com.fairchain.nodeapi.dto.TeamMemberDto;
+import com.fairchain.nodeapi.dto.VerdictDto;
 import com.fairchain.server.block.entity.AnchorRecord;
 import com.fairchain.server.block.repository.AnchorRecordRepository;
 import com.fairchain.server.block.requester.NodeLedgerAccess;
@@ -39,7 +42,10 @@ public class DemoController {
         return latest.values().stream().map(SeatRecord::of).toList();
     }
 
-    /** 노드 3대 원장 상태 */
+    /**
+     * 노드 원장 상태 + 리더 층 Raft 상태(역할 · 임기 · 빠진 이유 · 판정 기록). 노드 비밀값은 서버에만 있으므로 브라우저 대신
+     * FairChain이 묻는다. 조회만 한다 — 가입 · 해지 · 판정은 FairChain이 하지 않는다 (노드 구조 미정사항 15번)
+     */
     @GetMapping("/api/demo/nodes")
     public List<NodeStatus> nodes() {
         return nodeLedgerAccess.ledgers().stream().map(NodeStatus::of).toList();
@@ -57,12 +63,28 @@ public class DemoController {
         }
     }
 
-    public record NodeStatus(int node, boolean up, Long height, String headHash, boolean chainValid) {
+    /**
+     * @param raftRole  LEADER · FOLLOWER · LEARNER · CANDIDATE · NONE(빠짐)
+     * @param outReason 빠진 이유 (제외 · 체인 손상 · 복구 중). 참여 중이면 null
+     * @param verdicts  판정 기록: #k → EXCLUDED → RESTORED 등
+     */
+    public record NodeStatus(int node, boolean up, Long height, String headHash, boolean chainValid,
+                             String id, String team, String raftRole, Integer term, String leaderId, String outReason,
+                             boolean halted, List<String> excluded, List<VerdictDto> verdicts,
+                             List<TeamMemberDto> teamMembers) {
 
         static NodeStatus of(NodeLedger n) {
-            return n.reachable()
-                    ? new NodeStatus(n.number(), true, n.status().height(), n.status().headHash(), n.status().chainValid())
-                    : new NodeStatus(n.number(), false, null, null, false);
+            if (!n.reachable()) {
+                return new NodeStatus(n.number(), false, null, null, false, null, null, null, null, null, null, false,
+                        List.of(), List.of(), List.of());
+            }
+            NodeStatusDto raft = n.raft();
+            return new NodeStatus(n.number(), true, n.status().height(), n.status().headHash(), n.status().chainValid(),
+                    raft == null ? null : raft.id(), raft == null ? null : raft.team(),
+                    raft == null ? null : raft.raftRole(), raft == null ? null : raft.term(),
+                    raft == null ? null : raft.leaderId(), raft == null ? null : raft.outReason(),
+                    raft != null && raft.halted(), raft == null ? List.of() : raft.excluded(),
+                    raft == null ? List.of() : raft.verdicts(), raft == null ? List.of() : raft.teamMembers());
         }
     }
 }

@@ -1,9 +1,11 @@
 package com.fairchain.server.block.requester;
 
 import com.fairchain.api.http.HttpRequester;
+import com.fairchain.nodeapi.NodeAdminApi;
 import com.fairchain.nodeapi.NodeAuditApi;
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
+import com.fairchain.nodeapi.dto.NodeStatusDto;
 import com.fairchain.server.common.config.FairChainProperties;
 import org.springframework.stereotype.Component;
 
@@ -30,12 +32,21 @@ public class NodeLedgerRequester implements NodeLedgerAccess {
             String url = i < urls.size() ? urls.get(i) : "node" + number;
             try {
                 NodeLedgerStatusDto status = nodes.get(i).get(NodeAuditApi.LEDGER_STATUS, NodeLedgerStatusDto.class);
-                result.add(new NodeLedger(number, url, true, status, null));
+                result.add(new NodeLedger(number, url, true, status, null, raftStatus(nodes.get(i))));
             } catch (RuntimeException e) {
-                result.add(new NodeLedger(number, url, false, null, e.getMessage()));
+                result.add(new NodeLedger(number, url, false, null, e.getMessage(), null));
             }
         }
         return result;
+    }
+
+    /** 리더 층 노드의 상태. 조회만 한다 — 가입 · 해지 · 판정은 FairChain이 하지 않는다 (예전 노드라 없으면 null) */
+    private static NodeStatusDto raftStatus(HttpRequester node) {
+        try {
+            return node.get(NodeAdminApi.STATUS, NodeStatusDto.class);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     @Override

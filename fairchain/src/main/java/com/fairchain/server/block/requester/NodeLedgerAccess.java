@@ -2,6 +2,7 @@ package com.fairchain.server.block.requester;
 
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
+import com.fairchain.nodeapi.dto.NodeStatusDto;
 
 import java.util.List;
 
@@ -16,8 +17,10 @@ public interface NodeLedgerAccess {
      * @param reachable 응답했으면 true
      * @param status    원장 상태 (응답 없으면 null)
      * @param error     응답 없을 때 사유
+     * @param raft      리더 층 Raft 상태 — 역할 · 임기 · 빠진 이유 · 판정 기록 · 팀원 (예전 노드라 없거나 응답 없으면 null)
      */
-    record NodeLedger(int number, String url, boolean reachable, NodeLedgerStatusDto status, String error) {
+    record NodeLedger(int number, String url, boolean reachable, NodeLedgerStatusDto status, String error,
+                      NodeStatusDto raft) {
 
         public long height() {
             return status == null || status.height() == null ? 0L : status.height();

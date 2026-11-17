@@ -141,9 +141,18 @@
     const odd = (b) => Object.keys(votes[b.blockIndex]).length > 1 && votes[b.blockIndex][b.blockHash + b.recordHash] < 2;
     $('nodeCards').innerHTML = nodes.map((n) => {
       const s = n.status;
+      const r = n.raft;
+      // 리더 층 Raft 상태 (조회만): 역할 · 임기 · 빠진 이유 · 팀원 · 판정 기록 (#k → 제외 → 복귀)
+      const raft = !r ? '' : `
+        <p>${esc(r.id)} (팀 ${esc(r.team)}) · <b>${esc(r.raftRole)}</b>${r.term ? ' · 임기 ' + r.term : ''}
+           · 리더 ${esc(r.leaderId || '-')}${r.halted ? ' · <span class="bad">기록 중단</span>' : ''}
+           ${r.outReason ? '<br><span class="bad">빠짐: ' + esc(r.outReason) + '</span>' : ''}
+           ${(r.teamMembers || []).length ? '<br>팀원: ' + r.teamMembers.map((m) => esc(m.id) + ' ' + esc(m.state) + ' #' + m.lastBlockIndex).join(', ') : ''}
+           ${(r.verdicts || []).length ? '<br>판정: ' + r.verdicts.map((v) => esc(v.suspectId || '') + ' #' + (v.blockIndex ?? '-') + ' '
+              + esc(v.action) + ((v.differentFields || []).length ? ' (' + v.differentFields.map(esc).join(', ') + ')' : '')).join(' → ') : ''}</p>`;
       const head = !n.reachable ? `<p class="bad">응답 없음 — ${esc(n.error)}</p>` : `
         <p>높이 <b>${s.height}</b> · 마지막 해시 ${short(s.headHash)} ·
-           체인 무결성 ${s.chainValid ? '<span class="ok">정상</span>' : '<span class="bad">깨짐</span>'}</p>`;
+           체인 무결성 ${s.chainValid ? '<span class="ok">정상</span>' : '<span class="bad">깨짐</span>'}</p>${raft}`;
       const rows = n.blocks.map((b) => `<tr class="${odd(b) ? 'diff' : ''}">
         <td>${b.blockIndex}</td><td>${short(b.recordKey)}</td><td>v${b.version}</td><td>${short(b.recordHash)}</td>
         <td>${short(b.blockHash)}</td><td>${short(b.prevBlockHash)}</td></tr>`).join('');

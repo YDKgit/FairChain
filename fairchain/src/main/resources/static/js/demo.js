@@ -307,20 +307,32 @@ async function refreshNodes() {
   try { list = await api('GET', '/api/demo/nodes'); } catch (e) { return; }
   // 가장 앞선 정상 노드의 블록 수보다 적으면 "따라잡는 중"
   const top = Math.max(0, ...list.filter(n => n.up && n.chainValid).map(n => n.height));
+  // 리더 층 Raft 역할 (리더 · 팔로워 · learner). 예전 노드면 raftRole이 없다
+  const roleName = { LEADER: '👑 리더', FOLLOWER: '팔로워', LEARNER: 'learner (따라잡는 중)', CANDIDATE: '선거 중' };
   $('nodes').innerHTML = list.map(n => {
-    if (!n.up) return '<div class="node down"><b>노드 ' + n.node + '</b> — 꺼짐<br>투표에 참여하지 않음 (켜지면 따라잡음)</div>';
-    const state = !n.chainValid ? ['bad', '⛔ 체인 깨짐 · 투표에서 빠짐']
+    const name = '<b>노드 ' + n.node + (n.id ? ' · ' + n.id + ' (팀 ' + n.team + ')' : '') + '</b>';
+    if (!n.up) return '<div class="node down">' + name + ' — 꺼짐<br>투표에 참여하지 않음 (켜지면 따라잡음)</div>';
+    const state = n.outReason ? ['bad', '⛔ ' + n.outReason]
+                : !n.chainValid ? ['bad', '⛔ 체인 깨짐 · 투표에서 빠짐']
                 : n.height < top ? ['lag', '⏳ 따라잡는 중 (' + (top - n.height) + '개 남음)']
-                : ['', '✅ 정상 · 투표 참여'];
-    return '<div class="node ' + state[0] + '"><b>노드 ' + n.node + '</b> — 블록 ' + n.height + '개<br>' + state[1] +
+                : ['', '✅ 정상 · ' + (roleName[n.raftRole] || '투표 참여') + (n.term ? ' · 임기 ' + n.term : '')];
+    const team = (n.teamMembers || []).map(m => m.id + ' ' + (m.state === 'OK' ? '✅' : m.state)).join(', ');
+    return '<div class="node ' + state[0] + '">' + name + ' — 블록 ' + n.height + '개<br>' + state[1] +
+      (team ? '<br>팀원: ' + team : '') +
       '<br>마지막 블록 해시<div class="hash">' + (n.headHash || '-') + '</div></div>';
   }).join('');
   const up = list.filter(n => n.up);
-  const voters = up.filter(n => n.chainValid).length;
+  const voters = up.filter(n => n.chainValid && !n.outReason).length;
   const same = up.length > 1 && up.every(n => n.headHash === up[0].headHash);
+  const anyRaft = up.find(n => n.raftRole && !n.outReason);
+  const verdicts = anyRaft ? anyRaft.verdicts : [];
+  const actionName = { EXCLUDED: '제외', RESTORED: '복귀', HALTED: '기록 중단', RESUMED: '재개' };
   $('nodeSummary').textContent = (same ? '노드 ' + up.length + '대의 마지막 블록 해시가 모두 같아요'
                                        : '노드끼리 마지막 블록 해시가 달라요 (기록 · 따라잡기 중이거나 노드 이상)') +
-    ' · 투표 가능한 노드 ' + voters + '대' + (voters >= 2 ? ' → 새 기록 확정 가능' : ' → 2대 미만이라 새 기록 확정 불가');
+    ' · 투표 가능한 노드 ' + voters + '대' + (voters >= 2 ? ' → 새 기록 확정 가능' : ' → 2대 미만이라 새 기록 확정 불가') +
+    (anyRaft && anyRaft.halted ? ' · ⛔ 기록 중단 (관리자 확인 필요)' : '') +
+    (verdicts.length ? ' · 판정: ' + verdicts.slice(-4).map(v => (v.suspectId || '') + ' #' + (v.blockIndex ?? '-') + ' '
+        + (actionName[v.action] || v.action) + (v.differentFields && v.differentFields.length ? ' (' + v.differentFields.join(', ') + ')' : '')).join(' → ') : '');
 }
 
 function refresh() { refreshSeats(); refreshNodes(); }

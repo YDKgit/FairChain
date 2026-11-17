@@ -2,6 +2,7 @@ package com.fairchain.server.inspect;
 
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
+import com.fairchain.nodeapi.dto.NodeStatusDto;
 import com.fairchain.server.block.repository.AnchorRecordRepository;
 import com.fairchain.server.block.repository.BlockQueueRepository;
 import com.fairchain.server.block.requester.NodeLedgerAccess;
@@ -55,8 +56,9 @@ public class InspectorService {
     public record DbSnapshot(List<EventRow> events, List<AnchorRow> anchorRecords, List<AdmissionRow> admissions,
                              long blockQueueSize) {}
 
+    /** @param raft 리더 층 Raft 상태 (역할 · 임기 · 제외 · 판정 기록). 예전 노드면 null */
     public record NodeView(String url, boolean reachable, NodeLedgerStatusDto status, List<BlockDto> blocks,
-                           String error) {}
+                           String error, NodeStatusDto raft) {}
 
     /** 이 고객사의 요청 + 인증 전에 거절된 요청 (최신순) */
     public List<RequestLogEntry> requests(String clientId) {
@@ -90,14 +92,14 @@ public class InspectorService {
         List<NodeView> views = new ArrayList<>();
         for (NodeLedger ledger : nodeLedgerAccess.ledgers()) {
             if (!ledger.reachable()) {
-                views.add(new NodeView(ledger.url(), false, null, List.of(), ledger.error()));
+                views.add(new NodeView(ledger.url(), false, null, List.of(), ledger.error(), null));
                 continue;
             }
             long height = ledger.height();
             List<BlockDto> newestFirst = new ArrayList<>(height == 0 ? List.of()
                     : nodeLedgerAccess.blocks(ledger.number(), Math.max(1, height - BLOCKS + 1), BLOCKS));
             Collections.reverse(newestFirst);
-            views.add(new NodeView(ledger.url(), true, ledger.status(), newestFirst, null));
+            views.add(new NodeView(ledger.url(), true, ledger.status(), newestFirst, null, ledger.raft()));
         }
         return views;
     }
