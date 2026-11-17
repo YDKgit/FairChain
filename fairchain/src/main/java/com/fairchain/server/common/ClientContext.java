@@ -1,5 +1,6 @@
 package com.fairchain.server.common;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
@@ -17,11 +18,18 @@ public final class ClientContext {
         RequestContextHolder.currentRequestAttributes().setAttribute(ATTR, clientId, RequestAttributes.SCOPE_REQUEST);
     }
 
+    /** 인증된 고객사 ID. 없으면 401 */
     public static String clientId() {
         Object clientId = RequestContextHolder.currentRequestAttributes().getAttribute(ATTR, RequestAttributes.SCOPE_REQUEST);
         if (clientId == null) {
             throw new FairChainException(ErrorCode.UNAUTHORIZED, "인증된 고객사가 없습니다");
         }
         return (String) clientId;
+    }
+
+    /** 요청 객체에서 직접 읽는다 (필터처럼 RequestContextHolder 밖에서 쓸 때). 인증 전이면 null */
+    public static String find(HttpServletRequest request) {
+        Object clientId = request.getAttribute(ATTR);
+        return clientId == null ? null : clientId.toString();
     }
 }

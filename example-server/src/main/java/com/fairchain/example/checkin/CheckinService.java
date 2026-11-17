@@ -7,6 +7,7 @@ import com.fairchain.example.checkin.CheckinDtos.CheckinResultDto;
 import com.fairchain.example.checkin.CheckinDtos.GateStaffRegisterDto;
 import com.fairchain.example.checkin.CheckinDtos.StaffLoginDto;
 import com.fairchain.example.common.ApiException;
+import com.fairchain.example.common.Credentials;
 import com.fairchain.example.common.TicketFingerprint;
 import com.fairchain.example.concert.Concert;
 import com.fairchain.example.concert.ConcertRepository;
@@ -55,10 +56,14 @@ public class CheckinService {
     }
 
     @Transactional(readOnly = true)
+    public GateStaff staff(Long staffId) {
+        return staffRepository.findById(staffId).orElseThrow(() -> ApiException.unauthorized("게이트 스태프 로그인이 필요합니다"));
+    }
+
+    @Transactional(readOnly = true)
     public GateStaff login(StaffLoginDto dto) {
-        return staffRepository.findByLoginId(dto == null ? null : dto.loginId())
-                .filter(s -> passwordEncoder.matches(dto.password(), s.getPassword()))
-                .orElseThrow(() -> ApiException.unauthorized("아이디 또는 비밀번호가 틀렸습니다"));
+        return Credentials.authenticate(staffRepository.findByLoginId(dto == null ? null : dto.loginId()),
+                GateStaff::getPassword, dto == null ? null : dto.password(), passwordEncoder);
     }
 
     /** 티켓 조회 → 상태 · 공연 기간 확인 → FairChain 지문 검증 → CHECKED_IN 저장 + 입장 기록 */
@@ -102,16 +107,12 @@ public class CheckinService {
 
     @Transactional
     public void registerStaff(GateStaffRegisterDto dto) {
-        if (dto == null || blank(dto.loginId()) || blank(dto.password()) || blank(dto.name())) {
+        if (dto == null || Credentials.isBlank(dto.loginId()) || Credentials.isBlank(dto.password()) || Credentials.isBlank(dto.name())) {
             throw ApiException.badRequest("아이디 · 비밀번호 · 이름은 필수입니다");
         }
         if (staffRepository.findByLoginId(dto.loginId()).isPresent()) {
             throw ApiException.conflict("이미 사용 중인 스태프 아이디입니다");
         }
         staffRepository.save(new GateStaff(dto.loginId().trim(), passwordEncoder.encode(dto.password()), dto.name().trim()));
-    }
-
-    private static boolean blank(String value) {
-        return value == null || value.isBlank();
     }
 }

@@ -19,6 +19,10 @@ import com.fairchain.example.common.ApiException;
 import com.fairchain.example.reservation.OutboxStatus;
 import com.fairchain.example.reservation.RecordDispatchService;
 import com.fairchain.example.reservation.RecordOutboxRepository;
+import com.fairchain.example.reservation.ReallocationRound;
+import com.fairchain.example.reservation.ReallocationQueryService;
+import com.fairchain.example.reservation.ReallocationRoundRepository;
+import com.fairchain.example.reservation.ReallocationService;
 import com.fairchain.example.reservation.ReservationAccess;
 import com.fairchain.example.reservation.ReservationDtos.ReserveRequestDto;
 import com.fairchain.example.reservation.ReservationDtos.ReserveResultDto;
@@ -74,6 +78,9 @@ class ReservationFlowTest {
     @MockBean AdminAccess adminAccess;
 
     @Autowired ReservationService reservationService;
+    @Autowired ReallocationService reallocationService;
+    @Autowired ReallocationQueryService reallocationQueryService;
+    @Autowired ReallocationRoundRepository roundRepository;
     @Autowired CheckinService checkinService;
     @Autowired ConcertRepository concertRepository;
     @Autowired SeatGradeRepository seatGradeRepository;
@@ -99,6 +106,14 @@ class ReservationFlowTest {
 
     private ReserveResultDto reserve(long memberId) {
         return reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), null), memberId);
+    }
+
+    /** 재배정 시험용 — 공연이 열흘 뒤라 취소표가 보류된다 (기본 공연은 1시간 뒤라 "공연 임박") */
+    private void useFarConcert() {
+        LocalDateTime now = LocalDateTime.now();
+        concert = concertRepository.save(new Concert("열흘 뒤 공연", now.minusDays(1), now.plusDays(10), now.plusDays(10).plusHours(3), "테스트홀"));
+        SeatGrade grade = seatGradeRepository.save(new SeatGrade(concert.getId(), "R", BigDecimal.valueOf(100000)));
+        seat = seatRepository.save(new Seat(concert.getId(), grade.getId(), "A1"));
     }
 
     @Test
@@ -168,39 +183,93 @@ class ReservationFlowTest {
     }
 
     @Test
-    void cancelAfterSellOutOffersTheSeatToTheFirstCandidateWhoCanThenBuyIt() {
+    void cancelAfterSellOutHoldsTheSeatUntilTheOfferTime() {
+        useFarConcert();
         Ticket ticket = ticketRepository.findById(reserve(10L).ticketId()).orElseThrow();
         when(reservationAccess.registerRecord(any())).thenReturn(new RecordResponseDto(true));
-        when(reservationAccess.getReallocationCandidates(concert.getId()))
-                .thenReturn(new ReallocationListDto(concert.getId(), List.of(20L, 21L)));
 
         reservationService.cancel(ticket.getTicketId(), 10L);
 
-        assertEquals(SeatStatus.CANCELLED, seatRepository.findById(seat.getId()).orElseThrow().getStatus());
-        var offers = reservationService.openOffers(20L);
+        Seat held = seatRepository.findById(seat.getId()).orElseThrow();
+        assertEquals(SeatStatus.CANCELLED, held.getStatus());
+        assertTrue(held.getCancelledAt() != null);
+        assertTrue(roundRepository.findOpen(concert.getId()).isEmpty(), "제안 시각 전에는 회차를 열지 않는다");
+        assertFalse(reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), null), 30L).success(),
+                "보류 중인 취소표는 일반 예매로 살 수 없다");
+    }
+
+    @Test
+    void offerRoundGoesDownTheListOneAtATimeAndTheFirstCandidateCanBuy() {
+        useFarConcert();
+        Ticket ticket = ticketRepository.findById(reserve(10L).ticketId()).orElseThrow();
+        when(reservationAccess.registerRecord(any())).thenReturn(new RecordResponseDto(true));
+        when(reservationAccess.getReallocationCandidates(concert.getId()))
+                .thenReturn(new ReallocationListDto(concert.getId(), List.of(120L, 121L)));
+        reservationService.cancel(ticket.getTicketId(), 10L);
+
+        reallocationService.offerNow(concert.getId());
+
+        var offers = reallocationQueryService.openOffers(120L);
         assertEquals(1, offers.size());
-        assertTrue(reservationService.openOffers(21L).isEmpty(), "두 번째 후보는 첫 후보가 응답하지 않을 때까지 기다린다");
+        assertEquals(1, offers.get(0).seats().size());
+        assertTrue(reallocationQueryService.openOffers(121L).isEmpty(), "두 번째 후보는 첫 후보가 응답하지 않을 때까지 기다린다");
 
         ReserveResultDto bought = reservationService.reserve(
-                new ReserveRequestDto(seat.getId(), concert.getId(), offers.get(0).offerToken()), 20L);
+                new ReserveRequestDto(seat.getId(), concert.getId(), offers.get(0).offerToken()), 120L);
         assertTrue(bought.success());
         assertEquals(4L, ticketRepository.findById(bought.ticketId()).orElseThrow().getVersion());
         assertEquals(SeatStatus.RESERVED, seatRepository.findById(seat.getId()).orElseThrow().getStatus());
+        assertEquals(ReallocationRound.Status.DONE, roundRepository.findByConcertIdOrderByIdDesc(concert.getId()).get(0).getStatus(), "취소표가 다 나가면 회차 종료");
+        assertTrue(reallocationQueryService.openOffers(121L).isEmpty());
+    }
+
+    @Test
+    void whenTheListRunsOutTheSeatIsScheduledForGeneralSaleAndReleaseNowOpensIt() {
+        useFarConcert();
+        Ticket ticket = ticketRepository.findById(reserve(10L).ticketId()).orElseThrow();
+        when(reservationAccess.registerRecord(any())).thenReturn(new RecordResponseDto(true));
+        when(reservationAccess.getReallocationCandidates(concert.getId()))
+                .thenReturn(new ReallocationListDto(concert.getId(), List.of()));
+        reservationService.cancel(ticket.getTicketId(), 10L);
+
+        reallocationService.offerNow(concert.getId());
+
+        ReallocationRound round = roundRepository.findByConcertIdOrderByIdDesc(concert.getId()).get(0);
+        assertEquals(ReallocationRound.Status.RELEASE_PENDING, round.getStatus());
+        assertTrue(round.getReleaseAt().isAfter(LocalDateTime.now()), "다음 날 일반 판매 시각까지 기다린다");
+        assertEquals(SeatStatus.CANCELLED, seatRepository.findById(seat.getId()).orElseThrow().getStatus());
+
+        assertEquals(1, reallocationService.releaseNow(concert.getId()));
+        assertEquals(SeatStatus.EMPTY, seatRepository.findById(seat.getId()).orElseThrow().getStatus());
+        assertEquals(ReallocationRound.Status.DONE, roundRepository.findById(round.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void cancelInTheFinalDayGoesStraightBackToSale() {
+        Ticket ticket = ticketRepository.findById(reserve(10L).ticketId()).orElseThrow();
+        when(reservationAccess.registerRecord(any())).thenReturn(new RecordResponseDto(true));
+
+        reservationService.cancel(ticket.getTicketId(), 10L);
+
+        assertEquals(SeatStatus.EMPTY, seatRepository.findById(seat.getId()).orElseThrow().getStatus(),
+                "공연 하루 전이면 매진 후 취소라도 명단을 돌리지 않고 바로 판매");
     }
 
     @Test
     void anotherMemberCannotUseSomeoneElsesOffer() {
+        useFarConcert();
         Ticket ticket = ticketRepository.findById(reserve(10L).ticketId()).orElseThrow();
         when(reservationAccess.registerRecord(any())).thenReturn(new RecordResponseDto(true));
         when(reservationAccess.getReallocationCandidates(concert.getId()))
-                .thenReturn(new ReallocationListDto(concert.getId(), List.of(20L)));
+                .thenReturn(new ReallocationListDto(concert.getId(), List.of(220L)));
         reservationService.cancel(ticket.getTicketId(), 10L);
-        String token = reservationService.openOffers(20L).get(0).offerToken();
+        reallocationService.offerNow(concert.getId());
+        String token = reallocationQueryService.openOffers(220L).get(0).offerToken();
 
         assertThrows(ApiException.class,
-                () -> reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), token), 21L));
+                () -> reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), token), 221L));
         assertThrows(ApiException.class,
-                () -> reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), "not-a-token"), 20L));
+                () -> reservationService.reserve(new ReserveRequestDto(seat.getId(), concert.getId(), "not-a-token"), 220L));
     }
 
     @Test

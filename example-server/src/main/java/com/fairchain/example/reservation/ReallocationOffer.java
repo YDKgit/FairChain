@@ -13,7 +13,10 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/** 취소표 재배정 제안. FairChain 명단(최초 대기 순번순)대로 한 명씩 제한시간을 두고 제안한다 */
+/**
+ * 재배정 회차 안에서 명단의 한 사람에게 주는 제안.
+ * "이 공연의 남은 취소표 중 하나를 기한 안에 고르세요" — 고른 좌석은 seatId에 남는다.
+ */
 @Entity
 @Table(name = "reallocation_offer")
 public class ReallocationOffer {
@@ -23,10 +26,10 @@ public class ReallocationOffer {
     private Long id;
 
     @Column(nullable = false)
-    private Long concertId;
+    private Long roundId;
 
     @Column(nullable = false)
-    private Long seatId;
+    private Long concertId;
 
     @Column(nullable = false)
     private Long memberId;
@@ -42,13 +45,18 @@ public class ReallocationOffer {
     @Column(length = 36)
     private String offerToken;
 
+    private LocalDateTime offeredAt;
+
     private LocalDateTime expiresAt;
+
+    /** 수락해서 예매한 좌석 */
+    private Long seatId;
 
     protected ReallocationOffer() {}
 
-    public ReallocationOffer(Long concertId, Long seatId, Long memberId, Long sequenceNumber) {
+    public ReallocationOffer(Long roundId, Long concertId, Long memberId, Long sequenceNumber) {
+        this.roundId = roundId;
         this.concertId = concertId;
-        this.seatId = seatId;
         this.memberId = memberId;
         this.sequenceNumber = sequenceNumber;
         this.status = OfferStatus.WAITING;
@@ -57,15 +65,22 @@ public class ReallocationOffer {
     public void offer(Duration ttl) {
         status = OfferStatus.OFFERED;
         offerToken = UUID.randomUUID().toString();
-        expiresAt = LocalDateTime.now().plus(ttl);
+        offeredAt = LocalDateTime.now();
+        expiresAt = offeredAt.plus(ttl);
     }
 
-    public void accept() {
+    public void accept(Long seatId) {
         status = OfferStatus.ACCEPTED;
+        this.seatId = seatId;
     }
 
     public void expire() {
         status = OfferStatus.EXPIRED;
+    }
+
+    /** 회차가 끝나 차례가 오지 않은 사람 */
+    public void skip() {
+        status = OfferStatus.SKIPPED;
     }
 
     public boolean isUsableBy(Long memberId, LocalDateTime now) {
@@ -74,9 +89,9 @@ public class ReallocationOffer {
 
     public Long getId() { return id; }
 
-    public Long getConcertId() { return concertId; }
+    public Long getRoundId() { return roundId; }
 
-    public Long getSeatId() { return seatId; }
+    public Long getConcertId() { return concertId; }
 
     public Long getMemberId() { return memberId; }
 
@@ -86,5 +101,9 @@ public class ReallocationOffer {
 
     public String getOfferToken() { return offerToken; }
 
+    public LocalDateTime getOfferedAt() { return offeredAt; }
+
     public LocalDateTime getExpiresAt() { return expiresAt; }
+
+    public Long getSeatId() { return seatId; }
 }

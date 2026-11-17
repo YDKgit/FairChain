@@ -19,11 +19,16 @@ example:
     api-key: ${FAIRCHAIN_API_KEY:}           # FairChain에 등록된 고객사 API Key (fairchain.seed.api-key와 같은 값)
     client-id: ${FAIRCHAIN_CLIENT_ID:example-server}
     timeout: 3s
-  offer-ttl: 3m                              # 재배정 제안 응답 기한
+  reallocation:                              # 매진 후 취소표 재배정 일정
+    offer-time: ${EXAMPLE_REALLOC_OFFER_TIME:20:00}      # 매일 이 시각에 모아 둔 취소표를 명단에 순번대로 제안
+    release-time: ${EXAMPLE_REALLOC_RELEASE_TIME:09:00}  # 명단을 다 돌고 남은 취소표를 다음 날 이 시각에 일반 판매
+    offer-ttl: ${EXAMPLE_REALLOC_OFFER_TTL:10m}          # 한 사람의 응답 기한
+    final-window: ${EXAMPLE_REALLOC_FINAL_WINDOW:24h}    # 공연 시작까지 이 시간 이하면 명단 없이 바로 판매
   queue-enabled: ${EXAMPLE_QUEUE_ENABLED:true}   # false: 대기열 없이 바로 좌석 선택 (FairChain 대기열 · 입장 권한 확인 생략)
   seed:                                      # 처음 실행할 때 만드는 계정 · 더미 공연 (이미 있으면 건너뜀)
     operator-login-id: ${EXAMPLE_OPERATOR_ID:operator}
     operator-password: ${EXAMPLE_OPERATOR_PASSWORD:}
     staff-login-id: ${EXAMPLE_STAFF_ID:staff}
     staff-password: ${EXAMPLE_STAFF_PASSWORD:}
+    member-password: ${EXAMPLE_MEMBER_PASSWORD:demo1234}   # 시연 회원 5명(김철수 …) 공통 비밀번호, 비우면 만들지 않음
     concerts: true

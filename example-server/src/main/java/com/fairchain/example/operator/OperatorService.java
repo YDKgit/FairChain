@@ -2,6 +2,7 @@ package com.fairchain.example.operator;
 
 import com.fairchain.api.dto.ApiKeyDto;
 import com.fairchain.example.common.ApiException;
+import com.fairchain.example.common.Credentials;
 import com.fairchain.example.common.ExampleProperties;
 import com.fairchain.example.concert.Concert;
 import com.fairchain.example.concert.ConcertRepository;
@@ -57,9 +58,13 @@ public class OperatorService {
 
     @Transactional(readOnly = true)
     public Operator login(OperatorLoginDto dto) {
-        return operatorRepository.findByLoginId(dto == null ? null : dto.loginId())
-                .filter(o -> passwordEncoder.matches(dto.password(), o.getPassword()))
-                .orElseThrow(() -> ApiException.unauthorized("아이디 또는 비밀번호가 틀렸습니다"));
+        return Credentials.authenticate(operatorRepository.findByLoginId(dto == null ? null : dto.loginId()),
+                Operator::getPassword, dto == null ? null : dto.password(), passwordEncoder);
+    }
+
+    @Transactional(readOnly = true)
+    public Operator operator(Long operatorId) {
+        return operatorRepository.findById(operatorId).orElseThrow(() -> ApiException.unauthorized("운영자 로그인이 필요합니다"));
     }
 
     /** FairChain에서 apiKey · 대시보드 토큰 조회 */

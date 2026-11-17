@@ -1,5 +1,6 @@
 package com.fairchain.server.queue.repository;
 
+import com.fairchain.server.common.RedisKeys;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.stereotype.Repository;
@@ -17,8 +18,6 @@ import java.util.Set;
 @Repository
 public class QueueRepository {
 
-    private static final String EVENTS = "queue:events";
-
     private final StringRedisTemplate redis;
 
     public QueueRepository(StringRedisTemplate redis) {
@@ -26,12 +25,12 @@ public class QueueRepository {
     }
 
     public Long nextSequence(Long eventId) {
-        return redis.opsForValue().increment("queue:seq:" + eventId);
+        return redis.opsForValue().increment(RedisKeys.queueSequence(eventId));
     }
 
     public void zadd(Long eventId, Long userId, Long sequenceNumber) {
         redis.opsForZSet().add(key(eventId), String.valueOf(userId), sequenceNumber);
-        redis.opsForSet().add(EVENTS, String.valueOf(eventId));
+        redis.opsForSet().add(RedisKeys.QUEUE_EVENTS, String.valueOf(eventId));
     }
 
     public Long zscore(Long eventId, Long userId) {
@@ -66,12 +65,12 @@ public class QueueRepository {
     }
 
     public List<Long> activeEventIds() {
-        Set<String> members = redis.opsForSet().members(EVENTS);
+        Set<String> members = redis.opsForSet().members(RedisKeys.QUEUE_EVENTS);
         return members == null ? List.of() : members.stream().filter(Objects::nonNull).map(Long::valueOf).toList();
     }
 
-    private String key(Long eventId) {
-        return "queue:" + eventId;
+    private static String key(Long eventId) {
+        return RedisKeys.queue(eventId);
     }
 
     public record WaitingEntry(Long userId, Long sequenceNumber) {}

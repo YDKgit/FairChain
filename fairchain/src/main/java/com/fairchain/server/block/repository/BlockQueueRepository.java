@@ -1,6 +1,7 @@
 package com.fairchain.server.block.repository;
 
 import com.fairchain.nodeapi.dto.BlockRecordDto;
+import com.fairchain.server.common.RedisKeys;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BlockQueueRepository {
 
-    private static final String KEY = "block:queue";
+    private static final String KEY = RedisKeys.BLOCK_QUEUE;
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;

@@ -1,5 +1,6 @@
 package com.fairchain.server.queue.repository;
 
+import com.fairchain.server.common.RedisKeys;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -27,7 +28,7 @@ public class AdmissionPassRepository {
         redis.delete(key(eventId, userId));
     }
 
-    private String key(Long eventId, Long userId) {
-        return "admission:" + eventId + ":" + userId;
+    private static String key(Long eventId, Long userId) {
+        return RedisKeys.admission(eventId, userId);
     }
 }

@@ -1,5 +1,6 @@
 package com.fairchain.server.queue.repository;
 
+import com.fairchain.server.common.RedisKeys;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -16,10 +17,10 @@ public class IdempotencyKeyCache {
     }
 
     public String find(String key) {
-        return redis.opsForValue().get("idem:" + key);
+        return redis.opsForValue().get(RedisKeys.idempotency(key));
     }
 
     public void save(String key, String responseJson, Duration ttl) {
-        redis.opsForValue().set("idem:" + key, responseJson, ttl);
+        redis.opsForValue().set(RedisKeys.idempotency(key), responseJson, ttl);
     }
 }

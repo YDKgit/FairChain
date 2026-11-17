@@ -1,6 +1,7 @@
 package com.fairchain.server.admin.service;
 
 import com.fairchain.server.admin.dto.MetricsDto;
+import com.fairchain.server.common.SseSupport;
 import com.fairchain.server.queue.repository.MacroBlockCounter;
 import com.fairchain.server.queue.repository.QueueRepository;
 import com.fairchain.server.reservation.repository.EventRepository;
@@ -8,7 +9,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,12 +31,9 @@ public class DashboardService {
     }
 
     public SseEmitter register(String clientId) {
-        SseEmitter emitter = new SseEmitter(0L);
         List<SseEmitter> list = emitters.computeIfAbsent(clientId, k -> new CopyOnWriteArrayList<>());
+        SseEmitter emitter = SseSupport.openEmitter(list::remove);
         list.add(emitter);
-        emitter.onCompletion(() -> list.remove(emitter));
-        emitter.onTimeout(() -> list.remove(emitter));
-        emitter.onError(e -> list.remove(emitter));
         return emitter;
     }
 
@@ -57,13 +54,7 @@ public class DashboardService {
                 return;
             }
             List<MetricsDto> metrics = getMetricsPerConcert(clientId);
-            for (SseEmitter emitter : list) {
-                try {
-                    emitter.send(SseEmitter.event().name("metrics").data(metrics));
-                } catch (IOException | IllegalStateException e) {
-                    list.remove(emitter);
-                }
-            }
+            list.removeIf(emitter -> !SseSupport.send(emitter, "metrics", metrics));
         });
     }
 }

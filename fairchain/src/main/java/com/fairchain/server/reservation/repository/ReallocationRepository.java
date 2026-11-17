@@ -1,5 +1,6 @@
 package com.fairchain.server.reservation.repository;
 
+import com.fairchain.server.common.RedisKeys;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -29,7 +30,7 @@ public class ReallocationRepository {
         return members == null ? List.of() : members.stream().map(Long::valueOf).toList();
     }
 
-    private String key(Long eventId) {
-        return "reallocation:" + eventId;
+    private static String key(Long eventId) {
+        return RedisKeys.reallocation(eventId);
     }
 }

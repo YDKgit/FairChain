@@ -1,7 +1,8 @@
 package com.fairchain.example.reservation;
 
+import com.fairchain.example.concert.SeatGrade;
+
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /** 예매 관리 DTO (CD-03-1) */
@@ -23,10 +24,14 @@ public final class ReservationDtos {
         }
     }
 
-    public record SeatDto(Long seatId, String seatNumber, String gradeName, BigDecimal price, SeatStatus status) {}
+    public record SeatDto(Long seatId, String seatNumber, String gradeName, BigDecimal price, SeatStatus status) {
+
+        /** 좌석 + 등급(없으면 null) → 화면용 */
+        public static SeatDto of(Seat seat, SeatGrade grade) {
+            return new SeatDto(seat.getId(), seat.getSeatNumber(), SeatGrade.nameOf(grade),
+                    grade == null ? null : grade.getPrice(), seat.getStatus());
+        }
+    }
 
     public record SeatListResponseDto(List<SeatDto> seats) {}
-
-    public record OfferDto(Long offerId, Long concertId, String concertTitle, Long seatId, String seatNumber,
-                           String offerToken, LocalDateTime expiresAt) {}
 }

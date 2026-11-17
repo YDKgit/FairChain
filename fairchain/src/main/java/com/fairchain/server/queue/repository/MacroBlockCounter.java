@@ -1,5 +1,6 @@
 package com.fairchain.server.queue.repository;
 
+import com.fairchain.server.common.RedisKeys;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -20,7 +21,7 @@ public class MacroBlockCounter {
     }
 
     public long increment(Long userId, long second) {
-        String key = "macro:" + userId + ":" + second;
+        String key = RedisKeys.macroCounter(userId, second);
         Long count = redis.opsForValue().increment(key);
         if (count != null && count == 1L) {
             redis.expire(key, Duration.ofSeconds(2));
@@ -29,11 +30,11 @@ public class MacroBlockCounter {
     }
 
     public void incrementBlocked(Long eventId) {
-        redis.opsForValue().increment("macro:blocked:" + eventId);
+        redis.opsForValue().increment(RedisKeys.macroBlocked(eventId));
     }
 
     public long getBlocked(Long eventId) {
-        String value = redis.opsForValue().get("macro:blocked:" + eventId);
+        String value = redis.opsForValue().get(RedisKeys.macroBlocked(eventId));
         return value == null ? 0L : Long.parseLong(value);
     }
 }

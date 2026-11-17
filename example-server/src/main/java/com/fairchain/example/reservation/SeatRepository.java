@@ -23,4 +23,17 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     long countByConcertId(Long concertId);
 
     long countByConcertIdAndStatus(Long concertId, SeatStatus status);
+
+    List<Seat> findByConcertIdAndStatusOrderByIdAsc(Long concertId, SeatStatus status);
+
+    /** 회차에 아직 묶이지 않은 보류 취소표 */
+    List<Seat> findByConcertIdAndStatusAndReallocationRoundIdIsNullOrderByIdAsc(Long concertId, SeatStatus status);
+
+    List<Seat> findByReallocationRoundIdAndStatusOrderByIdAsc(Long roundId, SeatStatus status);
+
+    long countByReallocationRoundIdAndStatus(Long roundId, SeatStatus status);
+
+    /** 이 상태의 좌석이 하나라도 있는 공연 */
+    @Query("select distinct s.concertId from Seat s where s.status = :status")
+    List<Long> findConcertIdsByStatus(@Param("status") SeatStatus status);
 }

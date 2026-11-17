@@ -32,6 +32,7 @@ public class ReservationService {
     private static final Pattern SHA256_HEX = Pattern.compile("[0-9a-f]{64}");
 
     private final EventRepository eventRepository;
+    private final EventFinder eventFinder;
     private final AdmissionRepository admissionRepository;
     private final AnchorRecordRepository anchorRecordRepository;
     private final AdmissionPassRepository admissionPassRepository;
@@ -39,12 +40,13 @@ public class ReservationService {
     private final BlockRecordService blockRecordService;
     private final TransactionTemplate transactionTemplate;
 
-    public ReservationService(EventRepository eventRepository, AdmissionRepository admissionRepository,
-                              AnchorRecordRepository anchorRecordRepository,
+    public ReservationService(EventRepository eventRepository, EventFinder eventFinder,
+                              AdmissionRepository admissionRepository, AnchorRecordRepository anchorRecordRepository,
                               AdmissionPassRepository admissionPassRepository,
                               ReallocationService reallocationService, BlockRecordService blockRecordService,
                               PlatformTransactionManager transactionManager) {
         this.eventRepository = eventRepository;
+        this.eventFinder = eventFinder;
         this.admissionRepository = admissionRepository;
         this.anchorRecordRepository = anchorRecordRepository;
         this.admissionPassRepository = admissionPassRepository;
@@ -55,7 +57,7 @@ public class ReservationService {
 
     /** SD-302-02: 예매 전 입장 권한 확인 */
     public VerifyResultDto verifyAdmission(String clientId, AdmissionVerifyDto dto) {
-        ownedEvent(clientId, dto.eventId());
+        eventFinder.checkOwner(clientId, dto.eventId());
         if (admissionPassRepository.exists(dto.eventId(), dto.userId())) {
             return new VerifyResultDto(VerifyStatus.VERIFIED, null);
         }
@@ -72,7 +74,7 @@ public class ReservationService {
             if (!duplicate.get().getRecordHash().equals(dto.recordHash())) {
                 throw new FairChainException(ErrorCode.CONFLICT, "같은 버전에 다른 지문이 이미 기록되어 있습니다");
             }
-            return new RecordResponseDto(ownedEvent(clientId, dto.eventId()).isSoldOut());
+            return new RecordResponseDto(eventFinder.owned(clientId, dto.eventId()).isSoldOut());
         }
 
         Result result = transactionTemplate.execute(status -> record(clientId, dto));
@@ -92,24 +94,24 @@ public class ReservationService {
         Event event;
         switch (dto.type()) {
             case ISSUE -> {
-                event = eventRepository.findByIdForUpdate(dto.eventId())
-                        .orElseGet(() -> eventRepository.save(new Event(dto.eventId(), clientId)));
-                checkOwner(event, clientId);
+                // 첫 발행이면 공연 행을 만든다 (공연 등록 API는 없고 좌석 발행이 곧 등록)
+                event = eventFinder.checkOwner(clientId, eventRepository.findByIdForUpdate(dto.eventId())
+                        .orElseGet(() -> eventRepository.save(new Event(dto.eventId(), clientId))));
                 event.issueSeat();
             }
             case PURCHASE -> {
-                event = lockedEvent(clientId, dto.eventId());
+                event = eventFinder.ownedForUpdate(clientId, dto.eventId());
                 admissionRepository.findTopByUserIdAndEventIdOrderByIdDesc(dto.userId(), dto.eventId())
                         .ifPresent(admission -> admission.purchase());
                 firstSoldOut = event.sell();
             }
             case CANCEL -> {
-                event = lockedEvent(clientId, dto.eventId());
+                event = eventFinder.ownedForUpdate(clientId, dto.eventId());
                 admissionRepository.findTopByUserIdAndEventIdOrderByIdDesc(dto.userId(), dto.eventId())
                         .ifPresent(admission -> admission.cancel());
                 event.cancel();
             }
-            case CHECKIN -> event = ownedEvent(clientId, dto.eventId());
+            case CHECKIN -> event = eventFinder.owned(clientId, dto.eventId());
             default -> throw new FairChainException(ErrorCode.BAD_REQUEST, "알 수 없는 기록 종류");
         }
 
@@ -163,26 +165,6 @@ public class ReservationService {
             case PURCHASE -> next == RecordType.CANCEL || next == RecordType.CHECKIN;
             case CHECKIN -> false;
         };
-    }
-
-    private Event lockedEvent(String clientId, Long eventId) {
-        Event event = eventRepository.findByIdForUpdate(eventId)
-                .orElseThrow(() -> new FairChainException(ErrorCode.NOT_FOUND, "등록되지 않은 공연입니다: " + eventId));
-        checkOwner(event, clientId);
-        return event;
-    }
-
-    private Event ownedEvent(String clientId, Long eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new FairChainException(ErrorCode.NOT_FOUND, "등록되지 않은 공연입니다: " + eventId));
-        checkOwner(event, clientId);
-        return event;
-    }
-
-    private void checkOwner(Event event, String clientId) {
-        if (!event.getClientId().equals(clientId)) {
-            throw new FairChainException(ErrorCode.FORBIDDEN, "다른 고객사의 공연입니다");
-        }
     }
 
     private record Result(boolean soldOut, boolean firstSoldOut) {}

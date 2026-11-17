@@ -15,8 +15,7 @@ public class FairChainConfig {
     @Bean
     public HttpRequester fairChainRequester(ExampleProperties properties) {
         ExampleProperties.FairChain fairChain = properties.fairchain();
-        String apiKey = fairChain.apiKey() == null || fairChain.apiKey().isBlank() ? null : fairChain.apiKey();
-        return new RestHttpRequester(fairChain.url(), apiKey, fairChain.timeout());
+        return new RestHttpRequester(fairChain.url(), fairChain.apiKey(), fairChain.timeout());
     }
 
     @Bean

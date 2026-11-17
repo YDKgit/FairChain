@@ -5,12 +5,13 @@ import com.fairchain.api.dto.EnterQueueRequestDto;
 import com.fairchain.api.dto.EnterQueueResponseDto;
 import com.fairchain.api.dto.QueueStatusResponseDto;
 import com.fairchain.server.common.ClientContext;
+import com.fairchain.server.common.SseSupport;
 import com.fairchain.server.queue.service.FC_QueueService;
+import com.fairchain.server.reservation.service.EventFinder;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,12 +19,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FC_QueueController implements QueueApi {
 
     private final FC_QueueService queueService;
+    private final EventFinder eventFinder;
 
     /** SSE 연결 (SD-202-02) */
     private final Map<SseEmitter, Subscription> emitters = new ConcurrentHashMap<>();
 
-    public FC_QueueController(FC_QueueService queueService) {
+    public FC_QueueController(FC_QueueService queueService, EventFinder eventFinder) {
         this.queueService = queueService;
+        this.eventFinder = eventFinder;
     }
 
     @Override
@@ -34,18 +37,15 @@ public class FC_QueueController implements QueueApi {
 
     @Override
     public QueueStatusResponseDto status(Long userId, Long eventId) {
-        queueService.checkOwner(ClientContext.clientId(), eventId);
+        eventFinder.checkOwner(ClientContext.clientId(), eventId);
         return queueService.getStatus(userId, eventId);
     }
 
     @Override
     public SseEmitter subscribe(Long userId, Long eventId) {
-        queueService.checkOwner(ClientContext.clientId(), eventId);
-        SseEmitter emitter = new SseEmitter(0L);
+        eventFinder.checkOwner(ClientContext.clientId(), eventId);
+        SseEmitter emitter = SseSupport.openEmitter(emitters::remove);
         emitters.put(emitter, new Subscription(userId, eventId));
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
         send(emitter, userId, eventId);
         return emitter;
     }
@@ -67,15 +67,14 @@ public class FC_QueueController implements QueueApi {
     }
 
     private void send(SseEmitter emitter, Long userId, Long eventId) {
-        try {
-            QueueStatusResponseDto status = queueService.getStatus(userId, eventId);
-            emitter.send(SseEmitter.event().name("status").data(status));
-            if (!FC_QueueService.WAITING.equals(status.state())) {
-                emitters.remove(emitter);
-                emitter.complete();
-            }
-        } catch (IOException | IllegalStateException e) {
+        QueueStatusResponseDto status = queueService.getStatus(userId, eventId);
+        if (!SseSupport.send(emitter, "status", status)) {
             emitters.remove(emitter);
+            return;
+        }
+        if (!status.isWaiting()) {
+            emitters.remove(emitter);
+            emitter.complete();
         }
     }
 

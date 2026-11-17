@@ -15,9 +15,8 @@ public class NodeConfig {
     @Bean
     public List<HttpRequester> nodeRequesters(FairChainProperties properties) {
         FairChainProperties.Nodes nodes = properties.nodes();
-        String apiKey = nodes.apiKey() == null || nodes.apiKey().isBlank() ? null : nodes.apiKey();
         return nodes.urls().stream()
-                .map(url -> (HttpRequester) new RestHttpRequester(url, NodeHeaders.NODE_SECRET, apiKey, nodes.timeout()))
+                .map(url -> (HttpRequester) new RestHttpRequester(url, NodeHeaders.NODE_SECRET, nodes.apiKey(), nodes.timeout()))
                 .toList();
     }
 }

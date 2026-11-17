@@ -2,6 +2,7 @@ package com.fairchain.server.block.repository;
 
 import com.fairchain.api.dto.BlockState;
 import com.fairchain.server.block.entity.AnchorRecord;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,9 @@ public interface AnchorRecordRepository extends JpaRepository<AnchorRecord, Long
     }
 
     List<AnchorRecord> findByBlockStateOrderByIdAsc(BlockState blockState);
+
+    /** 점검 화면: 이 고객사의 최근 기록 (최신순, 페이지 크기만큼) */
+    List<AnchorRecord> findByClientIdOrderByIdDesc(String clientId, Pageable pageable);
 
     /** 시연 페이지: 한 공연의 모든 기록 (오래된 순) */
     List<AnchorRecord> findByClientIdAndEventIdOrderByIdAsc(String clientId, Long eventId);

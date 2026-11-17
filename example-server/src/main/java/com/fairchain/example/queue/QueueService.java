@@ -59,7 +59,7 @@ public class QueueService {
         queueAccess.subscribe(memberId, eventId, status -> {
             try {
                 emitter.send(SseEmitter.event().name("status").data(QueueStatusDto.of(status)));
-                if (!"WAITING".equals(status.state())) {
+                if (!status.isWaiting()) {
                     emitter.complete();
                 }
             } catch (IOException | IllegalStateException e) {

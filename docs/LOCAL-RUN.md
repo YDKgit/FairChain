@@ -24,10 +24,40 @@ JDK 17+ · Python 3 필요. 프로젝트 루트에서 (Windows PowerShell):
 
 | 주소 | 내용 | 로그인 |
 |---|---|---|
-| http://localhost:8080 | 예제 예매 사이트 | 회원: 직접 가입 · 운영자: `operator` · 게이트: `staff` |
+| http://localhost:8080 | 예제 예매 사이트 (FairTicket) | 회원: 로그인 화면의 **시연 계정** 버튼(김철수 · 이영희 · 박민수 · 최지우 · 정하늘, 비밀번호 `demo1234`) 또는 직접 가입 |
+| http://localhost:8080/admin | 예제서버 운영자 화면 (공연 · 좌석 등록 · 취소표 재배정 · 스태프) | `operator` |
+| http://localhost:8080/gate | 입장 게이트 (QR 스캔) | `staff` |
 | http://localhost:8081/inspector.html | FairChain 점검 화면 | FairChain 운영자 `admin` |
 | http://localhost:8081/dashboard.html | 관제 대시보드 | FairChain 운영자 `admin` |
 | :9001 · :9002 · :9003 | 노드 3대 | — |
+
+## 예제서버 화면 (React)
+
+화면은 `example-server/frontend`(React + Vite)에서 만들고, 빌드 결과를 `example-server/src/main/resources/static`에 넣어 둔다.
+빌드 결과가 git에 들어 있으므로 **Node 없이도 실행 스크립트만으로 사이트가 뜬다.** 화면을 고칠 때만 Node가 필요하다.
+
+```powershell
+cd example-server\frontend
+npm install            # 처음 한 번
+npm run dev            # 개발: http://localhost:5173 (/api 요청은 8080으로 넘김 — 예제서버가 떠 있어야 한다)
+npm run build          # 배포: static 폴더로 빌드 → 그 뒤 gradlew :example-server:bootJar
+```
+
+- 시연은 사용자 화면(`/`)과 운영자 화면(`/admin`)을 창 두 개로 나란히 띄운다. 같은 브라우저에서 회원 · 운영자 · 스태프 로그인이 따로 유지된다
+- `/concert/3` 같은 주소로 바로 들어가도 되도록 `SpaForwardController`가 `/api`와 정적 파일을 뺀 나머지를 `index.html`로 넘긴다
+
+### 취소표 재배정 일정 (예제서버)
+
+매진 뒤 취소표는 바로 풀지 않고 보류했다가 정해진 시각에 FairChain 재배정 명단(최초 대기 순번순)에 순번대로 제안한다.
+
+| 설정 (환경변수) | 기본 | 뜻 |
+|---|---|---|
+| `EXAMPLE_REALLOC_OFFER_TIME` | `20:00` | 매일 이 시각에 그때까지 보류된 취소표를 한 회차로 묶어 명단에 한 사람씩 제안 (이후 취소표는 다음 날) |
+| `EXAMPLE_REALLOC_OFFER_TTL` | `10m` | 한 사람의 응답 기한. 지나면 다음 순번 |
+| `EXAMPLE_REALLOC_RELEASE_TIME` | `09:00` | 명단을 다 돌고도 남은 취소표를 다음 날 이 시각에 일반 판매로 |
+| `EXAMPLE_REALLOC_FINAL_WINDOW` | `24h` | 공연 시작까지 이 시간 이하면 명단을 돌리지 않고 취소표를 바로 판매 |
+
+시연 때는 시각을 기다리지 않도록 운영자 화면 **취소표 재배정** 탭에 "지금 명단에 제안 시작", "지금 일반 판매로 풀기" 버튼이 있다.
 
 ## 시연 순서
 

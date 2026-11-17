@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/** 화면이 알아야 하는 설정 — 대기열을 거치는지, FairChain 주소(대시보드 · 점검 화면 링크) */
+/** 화면이 알아야 하는 설정 — 대기열을 거치는지, FairChain 주소(대시보드 · 점검 화면 링크), 재배정 일정 */
 @RestController
 public class ConfigController {
 
@@ -17,6 +17,14 @@ public class ConfigController {
 
     @GetMapping("/api/config")
     public Map<String, Object> config() {
-        return Map.of("queueEnabled", properties.queueEnabled(), "fairChainUrl", properties.fairchain().url());
+        ExampleProperties.Reallocation r = properties.reallocation();
+        return Map.of(
+                "queueEnabled", properties.queueEnabled(),
+                "fairChainUrl", properties.fairchain().url(),
+                "reallocation", Map.of(
+                        "offerTime", r.offerTime().toString(),
+                        "releaseTime", r.releaseTime().toString(),
+                        "offerTtlMinutes", r.offerTtl().toMinutes(),
+                        "finalWindowHours", r.finalWindow().toHours()));
     }
 }

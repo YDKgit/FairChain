@@ -1,5 +1,6 @@
 package com.fairchain.server.common.config;
 
+import com.fairchain.server.common.RedisKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -21,9 +22,6 @@ import java.util.List;
 public class RedisResetOnStart implements InitializingBean {
 
     private static final Logger log = LoggerFactory.getLogger(RedisResetOnStart.class);
-    private static final List<String> PATTERNS = List.of(
-            "block:queue", "queue:*", "admission:*", "reallocation:*", "macro:*", "idem:*");
-
     private final StringRedisTemplate redis;
 
     public RedisResetOnStart(StringRedisTemplate redis) {
@@ -34,7 +32,7 @@ public class RedisResetOnStart implements InitializingBean {
     public void afterPropertiesSet() {
         try {
             List<String> keys = new ArrayList<>();
-            for (String pattern : PATTERNS) {
+            for (String pattern : RedisKeys.ALL_PATTERNS) {
                 try (Cursor<String> cursor = redis.scan(ScanOptions.scanOptions().match(pattern).count(500).build())) {
                     cursor.forEachRemaining(keys::add);
                 }

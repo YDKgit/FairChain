@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/** 운영자 API. login · logout 외에는 SessionAuthInterceptor가 운영자 세션을 먼저 확인한다 */
 @RestController
 @RequestMapping("/api/operator")
 public class OperatorController {
@@ -43,35 +44,35 @@ public class OperatorController {
         return ResponseEntity.ok().build();
     }
 
+    /** 로그인된 운영자 — 화면이 세션이 살아 있는지 확인할 때 */
+    @GetMapping("/me")
+    public Map<String, String> me(HttpSession session) {
+        return Map.of("name", operatorService.operator(SessionUser.operatorId(session)).getName());
+    }
+
     @GetMapping("/keys")
-    public KeysDto keys(HttpSession session) {
-        SessionUser.operatorId(session);
+    public KeysDto keys() {
         return operatorService.getApiKey();
     }
 
     @PostMapping("/seats")
-    public Map<String, Object> registerSeats(@RequestBody SeatRegisterDto dto, HttpSession session) {
-        SessionUser.operatorId(session);
+    public Map<String, Object> registerSeats(@RequestBody SeatRegisterDto dto) {
         return Map.of("registered", operatorService.registerSeats(dto).stream().map(Seat::getSeatNumber).toList());
     }
 
     @PostMapping("/concerts")
-    public Map<String, Long> createConcert(@RequestBody ConcertRegisterDto dto, HttpSession session) {
-        SessionUser.operatorId(session);
+    public Map<String, Long> createConcert(@RequestBody ConcertRegisterDto dto) {
         Concert concert = operatorService.createConcert(dto);
         return Map.of("id", concert.getId());
     }
 
     @PutMapping("/concerts/{concertId}")
-    public Map<String, Long> updateConcert(@PathVariable Long concertId, @RequestBody ConcertRegisterDto dto,
-                                           HttpSession session) {
-        SessionUser.operatorId(session);
+    public Map<String, Long> updateConcert(@PathVariable Long concertId, @RequestBody ConcertRegisterDto dto) {
         return Map.of("id", operatorService.updateConcert(concertId, dto).getId());
     }
 
     @DeleteMapping("/concerts/{concertId}")
-    public ResponseEntity<Void> deleteConcert(@PathVariable Long concertId, HttpSession session) {
-        SessionUser.operatorId(session);
+    public ResponseEntity<Void> deleteConcert(@PathVariable Long concertId) {
         operatorService.deleteConcert(concertId);
         return ResponseEntity.ok().build();
     }

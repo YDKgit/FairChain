@@ -10,7 +10,6 @@ import com.fairchain.example.concert.Concert;
 import com.fairchain.example.concert.ConcertRepository;
 import com.fairchain.example.concert.SeatGrade;
 import com.fairchain.example.concert.SeatGradeRepository;
-import com.fairchain.example.reservation.ReservationDtos.OfferDto;
 import com.fairchain.example.reservation.ReservationDtos.ReserveRequestDto;
 import com.fairchain.example.reservation.ReservationDtos.ReserveResultDto;
 import com.fairchain.example.reservation.ReservationDtos.SeatDto;
@@ -23,8 +22,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * SS-03 예매 (C-0306). 좌석 · 티켓은 예제서버 DB에, 판매 · 취소 기록은 Outbox를 거쳐 FairChain으로.
@@ -65,14 +62,9 @@ public class ReservationService {
 
     @Transactional(readOnly = true)
     public SeatListResponseDto getSeats(Long concertId) {
-        Map<Long, SeatGrade> grades = seatGradeRepository.findByConcertId(concertId).stream()
-                .collect(Collectors.toMap(SeatGrade::getId, Function.identity()));
+        Map<Long, SeatGrade> grades = seatGradeRepository.mapByConcertId(concertId);
         List<SeatDto> seats = seatRepository.findByConcertIdOrderByIdAsc(concertId).stream()
-                .map(s -> {
-                    SeatGrade grade = grades.get(s.getSeatGradeId());
-                    return new SeatDto(s.getId(), s.getSeatNumber(), grade == null ? "-" : grade.getGradeName(),
-                            grade == null ? null : grade.getPrice(), s.getStatus());
-                })
+                .map(s -> SeatDto.of(s, grades.get(s.getSeatGradeId())))
                 .toList();
         return new SeatListResponseDto(seats);
     }
@@ -86,7 +78,7 @@ public class ReservationService {
                 .orElseThrow(() -> ApiException.notFound("공연이 없습니다"));
         boolean reallocation = dto.offerToken() != null && !dto.offerToken().isBlank();
         ReallocationOffer offer = reallocation
-                ? reallocationService.verifyOffer(concert.getId(), dto.seatId(), memberId, dto.offerToken())
+                ? reallocationService.verifyOffer(concert.getId(), memberId, dto.offerToken())
                 : null;
         if (!reallocation && queueEnabled) {
             VerifyResultDto admission = reservationAccess.verifyAdmission(memberId, concert.getId());
@@ -101,21 +93,28 @@ public class ReservationService {
             Seat seat = seatRepository.findByIdForUpdate(dto.seatId())
                     .filter(s -> s.getConcertId().equals(concert.getId()))
                     .orElseThrow(() -> ApiException.notFound("좌석이 없습니다"));
-            SeatStatus allowed = reallocation ? SeatStatus.CANCELLED : SeatStatus.EMPTY;
-            if (seat.getStatus() != allowed) {
-                return ReserveResultDto.fail(reallocation ? "재배정 중인 좌석이 아닙니다" : "이미 예약된 좌석입니다");
+            if (reallocation) {
+                if (!reallocationService.canTake(offer, seat)) {
+                    return ReserveResultDto.fail("이 제안으로 고를 수 있는 취소표가 아닙니다");
+                }
+            } else if (seat.getStatus() != SeatStatus.EMPTY) {
+                return ReserveResultDto.fail(seat.getStatus() == SeatStatus.CANCELLED
+                        ? "취소표 재배정 중인 좌석입니다 (명단 순번대로 제안 후 남으면 일반 판매)" : "이미 예약된 좌석입니다");
             }
             long version = seat.reserve(memberId);
             Ticket ticket = ticketRepository.save(Ticket.issue(memberId, seat, version));
             recordDispatchService.enqueue(seat.getId(),
                     fingerprint.record(RecordType.PURCHASE, concert.getId(), seat.getId(), memberId, version));
             if (offer != null) {
-                reallocationService.acceptOffer(offer);
+                reallocationService.acceptOffer(offer, seat.getId());
             }
             return ReserveResultDto.ok(ticket.getTicketId());
         });
         if (result != null && result.success()) {
             recordDispatchService.dispatchPending();
+            if (offer != null) {
+                reallocationService.afterAccept(concert.getId());     // 취소표가 남았으면 바로 다음 사람에게
+            }
         }
         return result;
     }
@@ -138,13 +137,4 @@ public class ReservationService {
         recordDispatchService.dispatchPending();
     }
 
-    @Transactional(readOnly = true)
-    public List<OfferDto> openOffers(Long memberId) {
-        return reallocationService.openOffers(memberId).stream()
-                .map(o -> new OfferDto(o.getId(), o.getConcertId(),
-                        concertRepository.findById(o.getConcertId()).map(Concert::getTitle).orElse("-"),
-                        o.getSeatId(), seatRepository.findById(o.getSeatId()).map(Seat::getSeatNumber).orElse("-"),
-                        o.getOfferToken(), o.getExpiresAt()))
-                .toList();
-    }
 }

@@ -85,10 +85,6 @@ public class AnchorRecord {
         return record;
     }
 
-    public void confirm(Long blockIndex) {
-        confirm(blockIndex, null);
-    }
-
     public void confirm(Long blockIndex, Long nodeMillis) {
         this.blockState = BlockState.CONFIRMED;
         this.blockIndex = blockIndex;

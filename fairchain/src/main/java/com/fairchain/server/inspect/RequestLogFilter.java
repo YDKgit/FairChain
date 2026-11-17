@@ -1,5 +1,6 @@
 package com.fairchain.server.inspect;
 
+import com.fairchain.server.common.ClientContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,8 +25,6 @@ import java.time.LocalDateTime;
 public class RequestLogFilter extends OncePerRequestFilter {
 
     private static final int BODY_LIMIT = 2000;
-    /** ClientContext가 인증된 고객사 ID를 넣어 두는 요청 속성 */
-    private static final String CLIENT_ATTR = "fairchain.clientId";
 
     private final RequestLogStore store;
 
@@ -55,10 +54,9 @@ public class RequestLogFilter extends OncePerRequestFilter {
                 res.copyBodyToResponse();
             }
             String query = request.getQueryString();
-            Object clientId = request.getAttribute(CLIENT_ATTR);
             store.add(new RequestLogEntry(store.nextId(), LocalDateTime.now(), request.getMethod(),
                     request.getRequestURI() + (query == null ? "" : "?" + query),
-                    clientId == null ? null : clientId.toString(), status,
+                    ClientContext.find(request), status,
                     System.currentTimeMillis() - started, text(req.getContentAsByteArray()), responseBody));
         }
     }

@@ -7,7 +7,7 @@ import com.fairchain.api.dto.RecordRequestDto;
 import com.fairchain.api.dto.RecordResponseDto;
 import com.fairchain.api.dto.VerifyResultDto;
 import com.fairchain.server.common.ClientContext;
-import com.fairchain.server.queue.service.FC_QueueService;
+import com.fairchain.server.reservation.service.EventFinder;
 import com.fairchain.server.reservation.service.ReallocationService;
 import com.fairchain.server.reservation.service.ReservationService;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,13 +17,13 @@ public class ReservationController implements ReservationApi {
 
     private final ReservationService reservationService;
     private final ReallocationService reallocationService;
-    private final FC_QueueService queueService;
+    private final EventFinder eventFinder;
 
     public ReservationController(ReservationService reservationService, ReallocationService reallocationService,
-                                 FC_QueueService queueService) {
+                                 EventFinder eventFinder) {
         this.reservationService = reservationService;
         this.reallocationService = reallocationService;
-        this.queueService = queueService;
+        this.eventFinder = eventFinder;
     }
 
     @Override
@@ -38,7 +38,7 @@ public class ReservationController implements ReservationApi {
 
     @Override
     public ReallocationListDto getReallocationCandidates(Long eventId) {
-        queueService.checkOwner(ClientContext.clientId(), eventId);
+        eventFinder.checkOwner(ClientContext.clientId(), eventId);
         return reallocationService.getCandidates(eventId);
     }
 }

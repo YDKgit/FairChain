@@ -34,6 +34,11 @@ public class SeatGrade {
         this.price = price;
     }
 
+    /** 등급이 없으면 "-" */
+    public static String nameOf(SeatGrade grade) {
+        return grade == null ? "-" : grade.getGradeName();
+    }
+
     public Long getId() { return id; }
 
     public Long getConcertId() { return concertId; }

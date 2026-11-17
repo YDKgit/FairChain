@@ -27,6 +27,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** SS-05 내 티켓 — FairChain 검증 목록과 자기 DB 티켓을 비교해 목록을 만든다 (C-0508) */
 @Service
@@ -63,6 +65,7 @@ public class TicketService {
         AnchorListResponseDto anchors = fetchAnchors(memberId, concertId);
         Map<String, VerifiedAnchorDto> byKey = new HashMap<>();
         anchors.anchors().forEach(a -> byKey.put(a.recordKey(), a));
+        Lookup lookup = Lookup.forTickets(local, seatRepository, seatGradeRepository, concertRepository);
 
         List<TicketDetailResponseDto> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
@@ -74,7 +77,7 @@ public class TicketService {
                 seen.add(key);
                 status = verificationService.determineStatus(ticket, anchor, anchors.verificationAvailable());
             }
-            result.add(detail(ticket, status, anchor == null ? null : anchor.blockIndex()));
+            result.add(detail(ticket, status, anchor == null ? null : anchor.blockIndex(), lookup));
         }
         // FairChain에는 내 티켓으로 남아 있는데 로컬에는 없는 기록
         for (VerifiedAnchorDto anchor : anchors.anchors()) {
@@ -94,7 +97,8 @@ public class TicketService {
         return getMyTickets(memberId, ticket.getConcertId()).tickets().stream()
                 .filter(t -> ticketId.equals(t.ticketId()))
                 .findFirst()
-                .orElseGet(() -> detail(ticket, null, null));
+                .orElseGet(() -> detail(ticket, null, null,
+                        Lookup.forTickets(List.of(ticket), seatRepository, seatGradeRepository, concertRepository)));
     }
 
     /** FairChain이 응답하지 않으면 로컬 티켓만 보여 준다 (UNAVAILABLE) */
@@ -108,14 +112,30 @@ public class TicketService {
         }
     }
 
-    private TicketDetailResponseDto detail(Ticket ticket, VerificationStatus status, Long blockIndex) {
-        Seat seat = seatRepository.findById(ticket.getSeatId()).orElse(null);
-        SeatGrade grade = seat == null ? null : seatGradeRepository.findById(seat.getSeatGradeId()).orElse(null);
-        String title = concertRepository.findById(ticket.getConcertId()).map(Concert::getTitle).orElse("-");
-        return new TicketDetailResponseDto(ticket.getTicketId(), ticket.getConcertId(), title,
-                seat == null ? "-" : seat.getSeatNumber(), grade == null ? "-" : grade.getGradeName(),
+    private static TicketDetailResponseDto detail(Ticket ticket, VerificationStatus status, Long blockIndex, Lookup lookup) {
+        Seat seat = lookup.seats.get(ticket.getSeatId());
+        SeatGrade grade = seat == null ? null : lookup.grades.get(seat.getSeatGradeId());
+        Concert concert = lookup.concerts.get(ticket.getConcertId());
+        return new TicketDetailResponseDto(ticket.getTicketId(), ticket.getConcertId(),
+                concert == null ? "-" : concert.getTitle(),
+                seat == null ? "-" : seat.getSeatNumber(), SeatGrade.nameOf(grade),
                 grade == null ? null : grade.getPrice(), ticket.getStatus(), ticket.getVersion(), status,
                 ticket.getStatus() == TicketStatus.ACTIVE ? ticket.getQrToken() : null,
                 ticket.getIssuedAt(), ticket.getCheckedInAt(), blockIndex);
+    }
+
+    /** 티켓 목록에 필요한 좌석 · 등급 · 공연을 한 번씩만 읽어 둔다 (티켓마다 세 번 조회하지 않게) */
+    private record Lookup(Map<Long, Seat> seats, Map<Long, SeatGrade> grades, Map<Long, Concert> concerts) {
+
+        static Lookup forTickets(List<Ticket> tickets, SeatRepository seatRepository,
+                                 SeatGradeRepository seatGradeRepository, ConcertRepository concertRepository) {
+            Map<Long, Seat> seats = seatRepository.findAllById(tickets.stream().map(Ticket::getSeatId).collect(Collectors.toSet()))
+                    .stream().collect(Collectors.toMap(Seat::getId, Function.identity()));
+            Map<Long, SeatGrade> grades = seatGradeRepository.findAllById(seats.values().stream().map(Seat::getSeatGradeId).collect(Collectors.toSet()))
+                    .stream().collect(Collectors.toMap(SeatGrade::getId, Function.identity()));
+            Map<Long, Concert> concerts = concertRepository.findAllById(tickets.stream().map(Ticket::getConcertId).collect(Collectors.toSet()))
+                    .stream().collect(Collectors.toMap(Concert::getId, Function.identity()));
+            return new Lookup(seats, grades, concerts);
+        }
     }
 }

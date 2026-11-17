@@ -37,6 +37,12 @@ public class Seat {
 
     private LocalDateTime reservedAt;
 
+    /** 취소된 시각 — CANCELLED(보류) 상태일 때만 */
+    private LocalDateTime cancelledAt;
+
+    /** 이 취소표를 제안 중인 재배정 회차 (없으면 다음 제안 시각까지 보류) */
+    private Long reallocationRoundId;
+
     @Column(nullable = false)
     private Long recordVersion;
 
@@ -56,14 +62,18 @@ public class Seat {
         status = SeatStatus.RESERVED;
         reservedBy = memberId;
         reservedAt = LocalDateTime.now();
+        cancelledAt = null;
+        reallocationRoundId = null;
         return ++recordVersion;
     }
 
-    /** 취소 — 재배정이 끝날 때까지 일반 예매를 막는다 */
+    /** 취소 — 재배정이 끝날 때까지 일반 예매를 막는다 (보류) */
     public long release() {
         status = SeatStatus.CANCELLED;
         reservedBy = null;
         reservedAt = null;
+        cancelledAt = LocalDateTime.now();
+        reallocationRoundId = null;
         return ++recordVersion;
     }
 
@@ -72,9 +82,16 @@ public class Seat {
         return ++recordVersion;
     }
 
-    /** 재배정할 사람이 없으면 다시 일반 판매 */
+    /** 재배정 회차에 넣는다 */
+    public void joinRound(Long roundId) {
+        this.reallocationRoundId = roundId;
+    }
+
+    /** 재배정할 사람이 없거나 기간이 끝나면 다시 일반 판매 */
     public void reopen() {
         status = SeatStatus.EMPTY;
+        cancelledAt = null;
+        reallocationRoundId = null;
     }
 
     public Long getId() { return id; }
@@ -90,6 +107,10 @@ public class Seat {
     public Long getReservedBy() { return reservedBy; }
 
     public LocalDateTime getReservedAt() { return reservedAt; }
+
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
+
+    public Long getReallocationRoundId() { return reallocationRoundId; }
 
     public Long getRecordVersion() { return recordVersion; }
 }
