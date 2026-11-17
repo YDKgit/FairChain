@@ -89,7 +89,7 @@ async function issueSeats() {
                  recordHash: short(list[0].recordHash) }, '… 좌석 ' + count + '개'] };
   try {
     await api('POST', '/api/admin/seats/issue', { eventId: ev, records: list });
-    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드로 →\n노드끼리 투표, 2대 이상 찬성하면 CONFIRMED');
+    showFlow(ticketText, '/api/admin/seats/issue', sent, '200 OK\n\n기록 저장(PENDING) 후 바로 응답\n블록 기록은 대기 줄에서 노드로 →\n리더 층 노드 과반(2대 이상)이 저장하면 CONFIRMED');
     show('issueMsg', start + '번 ~ ' + (start + count - 1) + '번 좌석 발행 요청 완료 → 블록 기록 대기 중');
   } catch (e) { showFlow(ticketText, '/api/admin/seats/issue', sent, e.message); show('issueMsg', e.message, true); }
   refresh();
@@ -108,7 +108,7 @@ async function purchase(seat, user) {
                  version: body.version, recordHash: short(body.recordHash) };
   try {
     const res = await api('POST', '/api/records', body);
-    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED');
+    showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version + ' 기록 저장(PENDING)\n→ 리더 층 노드 과반(2대 이상) 저장 → CONFIRMED');
     showBuy(seatName(seat) + ' → ' + who(user) + ' 예매 완료' + (res.soldOut ? ' (매진)' : ''));
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }
@@ -130,7 +130,7 @@ async function cancel(seat) {
   try {
     const res = await api('POST', '/api/records', body);
     showFlow(ticketText, '/api/records', sent, '200 OK  ' + JSON.stringify(res) + '\n\n버전 ' + body.version +
-      ' 취소 기록 저장(PENDING)\n→ 노드끼리 투표, 2대 이상 찬성 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
+      ' 취소 기록 저장(PENDING)\n→ 리더 층 노드 과반(2대 이상) 저장 → CONFIRMED\n이전 예매 기록(v' + rec.version + ')은 블록에 그대로 남음');
     showBuy(seatName(seat) + ' ' + who(user) + ' 예매 취소 완료 → 다시 판매 가능');
     showCode(200);
   } catch (e) { showFlow(ticketText, '/api/records', sent, e.message + (e.status === 409 ? REJECTED : '')); showBuy(e.message, true); showCode(e.status); }

@@ -51,15 +51,15 @@
     <h2>좌석 · 블록 기록 상태 <span class="msg">(1초마다 새로고침 · 좌석을 누르면 ② 예매와 취소 칸 둘 다, ④ 체크인에 그 좌석이 채워져요)</span></h2>
     <div class="legend">
       좌석 상태 <span class="type ISSUE">판매 전</span><span class="type PURCHASE">예매됨</span><span class="type CANCEL">취소됨</span><span class="type CHECKIN">입장함</span>
-      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 노드끼리 투표해 2대 이상 찬성 · 확정
+      &nbsp;│&nbsp; 블록 기록 <span class="badge PENDING">PENDING</span> 노드에 기록 중 <span class="badge CONFIRMED">CONFIRMED</span> 리더 층 노드 과반(2대 이상)이 저장 · 확정
     </div>
     <div id="seats" class="seats"></div>
     <div id="timing" class="msg"></div>
   </section>
 
   <section class="wide">
-    <h2>③ 노드 3대 블록체인</h2>
-    <div class="consensus">FairChain → 노드 1대에 제출 → <b>노드끼리 제안 · 투표</b> → 2대 이상 찬성하면 확정 &nbsp;·&nbsp; 꺼졌던 노드는 켜지면 다른 노드에서 빠진 블록을 받아 <b>스스로 따라잡음</b> &nbsp;·&nbsp; 체인이 깨진 노드는 <b>투표에서 빠짐</b></div>
+    <h2>③ 블록체인 노드 (리더 층)</h2>
+    <div class="consensus">FairChain → 아무 노드에나 제출 → <b>리더가 블록을 만들어 Raft 로그로 복제</b> → 과반(2대 이상)이 저장하면 확정 &nbsp;·&nbsp; 꺼졌던 노드는 켜지면 <b>스스로 따라잡음</b> &nbsp;·&nbsp; 장부가 다른 노드는 판정으로 <b>제외</b>되었다가 다시 받아 <b>복귀</b></div>
     <div id="nodes" class="nodes"></div>
     <div id="nodeSummary" class="msg"></div>
   </section>
