@@ -40,8 +40,8 @@ public class QueueRequester implements QueueAccess {
     }
 
     @Override
-    public void subscribe(Long memberId, Long eventId, Consumer<QueueStatusResponseDto> onEvent) {
-        httpRequester.subscribe(QueueApi.SUBSCRIBE + query(memberId, eventId), QueueStatusResponseDto.class, onEvent);
+    public void subscribe(Long memberId, Long eventId, Consumer<QueueStatusResponseDto> onEvent, Runnable onClosed) {
+        httpRequester.subscribe(QueueApi.SUBSCRIBE + query(memberId, eventId), QueueStatusResponseDto.class, onEvent, onClosed);
     }
 
     private static String query(Long memberId, Long eventId) {

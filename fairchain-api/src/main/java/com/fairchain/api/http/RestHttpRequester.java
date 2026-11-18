@@ -70,7 +70,7 @@ public class RestHttpRequester implements HttpRequester {
     }
 
     @Override
-    public <T> void subscribe(String path, Class<T> eventType, Consumer<T> onEvent) {
+    public <T> void subscribe(String path, Class<T> eventType, Consumer<T> onEvent, Runnable onClosed) {
         // SSE는 연결이 오래 유지되므로 읽기 타임아웃 없이 JDK HttpClient로 줄 단위 수신
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .header("Accept", "text/event-stream")
@@ -79,10 +79,16 @@ public class RestHttpRequester implements HttpRequester {
             request.header(apiKeyHeader, apiKey);
         }
         sseClient.sendAsync(request.build(), HttpResponse.BodyHandlers.ofLines())
-                .thenAccept(response -> response.body()
-                        .filter(line -> line.startsWith("data:"))
-                        .map(line -> line.substring(5).trim())
-                        .forEach(data -> onEvent.accept(readJson(data, eventType))));
+                .thenAccept(response -> {
+                    if (response.statusCode() / 100 == 2) {
+                        response.body()
+                                .filter(line -> line.startsWith("data:"))
+                                .map(line -> line.substring(5).trim())
+                                .forEach(data -> onEvent.accept(readJson(data, eventType)));
+                    }
+                })
+                // 거절 · 끊김 · 읽기 실패 · 정상 종료 모두 여기로 온다 — 받는 쪽이 계속 기다리지 않게 알린다
+                .whenComplete((ok, error) -> onClosed.run());
     }
 
     private <T> T readJson(String json, Class<T> type) {

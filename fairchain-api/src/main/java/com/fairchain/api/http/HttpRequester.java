@@ -11,6 +11,9 @@ public interface HttpRequester {
 
     void delete(String path);
 
-    /** SSE 구독 — 이벤트가 올 때마다 onEvent 호출 (비동기) */
-    <T> void subscribe(String path, Class<T> eventType, Consumer<T> onEvent);
+    /**
+     * SSE 구독 — 이벤트가 올 때마다 onEvent 호출 (비동기).
+     * 연결이 거절되거나(429 등) 끊기거나 끝나면 onClosed를 한 번 부른다.
+     */
+    <T> void subscribe(String path, Class<T> eventType, Consumer<T> onEvent, Runnable onClosed);
 }

@@ -16,5 +16,5 @@ public interface QueueAccess {
 
     void leaveAll(Long memberId);
 
-    void subscribe(Long memberId, Long eventId, Consumer<QueueStatusResponseDto> onEvent);
+    void subscribe(Long memberId, Long eventId, Consumer<QueueStatusResponseDto> onEvent, Runnable onClosed);
 }

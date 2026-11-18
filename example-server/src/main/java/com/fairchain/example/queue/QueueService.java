@@ -65,7 +65,7 @@ public class QueueService {
             } catch (IOException | IllegalStateException e) {
                 emitter.completeWithError(e);
             }
-        });
+        }, emitter::complete);    // FairChain 쪽 연결이 끝나면 브라우저 연결도 닫는다 → 화면이 상태를 직접 물어본다
         return emitter;
     }
 }
