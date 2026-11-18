@@ -1,11 +1,11 @@
 // FairTicket 앱 — 예제서버(FairChain 예제 예매 사이트)를 휴대폰에서 쓰는 화면.
 // 아래 탭 4개(홈 · 내 티켓 · 취소표 · 내 정보) 위에 상세 화면이 차례로 쌓인다.
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadServerUrl } from './src/api';
-import { AppProvider, useApp } from './src/app';
+import { AppProvider, useApp, useNow } from './src/app';
 import { Loading } from './src/components/ui';
 import { Login, Me, Signup } from './src/screens/Account';
 import Concert from './src/screens/Concert';
@@ -15,6 +15,7 @@ import Queue from './src/screens/Queue';
 import Realloc from './src/screens/Realloc';
 import Seats from './src/screens/Seats';
 import Tickets from './src/screens/Tickets';
+import { remaining } from './src/lib/utils';
 import { C } from './src/theme';
 
 const TAB_LIST = [
@@ -33,8 +34,29 @@ const SCREENS = {
   gate: { title: '입장 게이트', render: (p) => <Gate {...p} /> },
 };
 
+/** 취소표 알림 배너 — 어느 화면에 있든 위에서 내려온다. 누르면 그 취소표를 고르는 화면으로 */
+function OfferBanner({ offer, top }) {
+  const { nav, dismissBanner } = useApp();
+  const now = useNow();
+  const slide = useRef(new Animated.Value(-160)).current;
+  useEffect(() => {
+    Animated.spring(slide, { toValue: 0, useNativeDriver: true, friction: 9 }).start();
+  }, [slide]);
+  const seats = offer.seats.map((s) => `${s.gradeName}석 ${s.seatNumber}`).join(', ');
+  return (
+    <Animated.View style={[st.banner, { top: top + 6, transform: [{ translateY: slide }] }]}>
+      <Pressable style={{ flex: 1, gap: 2 }} onPress={() => nav.push('seats', { id: offer.concertId, offerToken: offer.offerToken })}>
+        <Text style={st.bannerTitle}>취소표가 나왔습니다 — 지금 내 차례</Text>
+        <Text style={st.bannerText} numberOfLines={1}>{offer.concertTitle} · {seats}</Text>
+        <Text style={st.bannerClock}>남은 시간 {remaining(offer.expiresAt, now)} · 눌러서 예매</Text>
+      </Pressable>
+      <Pressable hitSlop={12} onPress={() => dismissBanner(offer.offerId)}><Text style={st.bannerClose}>✕</Text></Pressable>
+    </Animated.View>
+  );
+}
+
 function Shell() {
-  const { tab, setTab, stack, nav, toastMsg } = useApp();
+  const { tab, setTab, stack, nav, toastMsg, offers, banner } = useApp();
   const insets = useSafeAreaInsets();
   const top = stack[stack.length - 1];
   const current = top ? SCREENS[top.name] : TAB_LIST.find((t) => t.key === tab);
@@ -72,11 +94,19 @@ function Shell() {
         <View style={[st.tabs, { paddingBottom: Math.max(insets.bottom, 8) }]}>
           {TAB_LIST.map((t) => (
             <Pressable key={t.key} style={st.tab} onPress={() => setTab(t.key)}>
-              <Text style={[st.tabMark, tab === t.key && st.tabOn]}>{t.mark}</Text>
+              <View>
+                <Text style={[st.tabMark, tab === t.key && st.tabOn]}>{t.mark}</Text>
+                {t.key === 'realloc' && offers.length > 0 && <View style={st.dot}><Text style={st.dotText}>{offers.length}</Text></View>}
+              </View>
               <Text style={[st.tabLabel, tab === t.key && st.tabOn]}>{t.label}</Text>
             </Pressable>
           ))}
         </View>
+      )}
+
+      {/* 이미 그 취소표를 고르는 화면이면 배너를 겹쳐 띄우지 않는다 */}
+      {banner && !(top?.name === 'seats' && top.params?.offerToken === banner.offerToken) && (
+        <OfferBanner key={banner.offerId} offer={banner} top={insets.top} />
       )}
 
       {toastMsg && (
@@ -111,6 +141,13 @@ const st = StyleSheet.create({
   tabMark: { fontSize: 20, color: C.faint },
   tabLabel: { fontSize: 11, color: C.faint, fontWeight: '700' },
   tabOn: { color: C.primary },
+  banner: { position: 'absolute', left: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.dark, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16, borderLeftWidth: 5, borderLeftColor: '#fbbf24', elevation: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  bannerTitle: { color: '#fde68a', fontSize: 14, fontWeight: '800' },
+  bannerText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  bannerClock: { color: '#d4d3df', fontSize: 12, fontVariant: ['tabular-nums'] },
+  bannerClose: { color: '#a3a2b0', fontSize: 18, padding: 4 },
+  dot: { position: 'absolute', top: -3, right: -12, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: C.pink, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  dotText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   toast: { position: 'absolute', left: 20, right: 20, backgroundColor: C.dark, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center' },
   toastText: { color: '#fff', fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

@@ -1,6 +1,8 @@
 // 앱 전체가 함께 쓰는 상태: 화면 이동(스택), 로그인한 회원, 서버 설정, 알림 띠
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Vibration } from 'react-native';
 import { get, post } from './api';
+import { notifyOffer, onNotificationTap, setupNotifications } from './notify';
 
 const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
@@ -53,7 +55,47 @@ export function AppProvider({ children }) {
     else nav.push('login', { then: { name, params } });
   }, [member, nav]);
 
-  const value = { tab, setTab, stack, nav, member, config, login, logout, refresh, requireLogin, toast, toastMsg };
+  // ── 취소표 알림 ── 로그인해 있는 동안 어느 화면에서든 "나에게 온 제안"을 5초마다 묻고,
+  // 처음 보는 제안이면 휴대폰 알림 + 앱 위쪽 배너를 띄운다
+  const [offers, setOffers] = useState([]);
+  const [hidden, setHidden] = useState([]);               // 사용자가 닫은 배너의 제안 번호
+  const seen = useRef(new Set());
+  const memberId = member?.id ?? null;
+
+  const checkOffers = useCallback(async () => {
+    if (!memberId) return;
+    let list;
+    try { list = await get('/api/reallocation/offers'); } catch { return; }
+    setOffers(list);
+    const fresh = list.filter((o) => !seen.current.has(o.offerId));
+    if (!fresh.length) return;
+    fresh.forEach((o) => { seen.current.add(o.offerId); notifyOffer(o); });
+    Vibration.vibrate([0, 250, 150, 250]);
+  }, [memberId]);
+
+  useEffect(() => {
+    seen.current = new Set(); setOffers([]); setHidden([]);
+    if (!memberId) return undefined;
+    setupNotifications();
+    checkOffers();
+    const timer = setInterval(checkOffers, 5000);
+    // 다른 앱을 보다가 돌아오면 기다리지 않고 바로 확인한다
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') checkOffers(); });
+    return () => { clearInterval(timer); sub.remove(); };
+  }, [memberId, checkOffers]);
+
+  // 휴대폰 알림을 누르면 바로 그 취소표를 고르는 화면으로
+  useEffect(() => onNotificationTap((data) => {
+    setStack([{ name: 'seats', params: { id: data.concertId, offerToken: data.offerToken } }]);
+  }), []);
+
+  const banner = offers.find((o) => !hidden.includes(o.offerId)) || null;
+  const dismissBanner = useCallback((offerId) => setHidden((h) => [...h, offerId]), []);
+
+  const value = {
+    tab, setTab, stack, nav, member, config, login, logout, refresh, requireLogin, toast, toastMsg,
+    offers, banner, dismissBanner, checkOffers,
+  };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
