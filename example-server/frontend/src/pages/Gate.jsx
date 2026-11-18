@@ -41,21 +41,37 @@ export default function Gate() {
     (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 주소에서는 카메라를 쓸 수 없습니다 (localhost 또는 https에서만 가능)');
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+        });
+        // 브라우저에 QR 인식 기능이 있으면 그것을 쓰고(화면에 띄운 QR도 잘 읽는다), 없으면 jsQR로 읽는다
+        let detector = null;
+        try { if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }
+        let busy = false;
         if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
         video.current.srcObject = stream;
         await video.current.play();
-        timer = setInterval(() => {
+        timer = setInterval(async () => {
           const v = video.current;
-          if (!v || !v.videoWidth) return;
-          canvas.width = v.videoWidth; canvas.height = v.videoHeight;
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          ctx.drawImage(v, 0, 0);
-          const found = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-          if (!found?.data) return;
-          if (found.data === last && Date.now() - lastAt < 3000) return;
-          last = found.data; lastAt = Date.now();
-          submit(found.data);
+          if (!v || !v.videoWidth || busy) return;
+          busy = true;
+          try {
+            let text = '';
+            if (detector) {
+              try { text = (await detector.detect(v))[0]?.rawValue || ''; } catch { detector = null; }
+            }
+            if (!text) {
+              canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              ctx.drawImage(v, 0, 0);
+              text = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height,
+                { inversionAttempts: 'attemptBoth' })?.data || '';
+            }
+            if (!text) return;
+            if (text === last && Date.now() - lastAt < 3000) return;
+            last = text; lastAt = Date.now();
+            submit(text);
+          } finally { busy = false; }
         }, 200);
       } catch (err) {
         setCameraError(err.name === 'NotAllowedError' ? '카메라 권한이 거부되었습니다. 주소창의 카메라 아이콘에서 허용해 주세요.' : (err.message || '카메라를 열 수 없습니다'));
@@ -90,7 +106,7 @@ export default function Gate() {
             <button type="button" className={camera ? 'btn ghost' : 'btn'} onClick={() => { setCameraError(''); setCamera((c) => !c); }}>
               {camera ? '카메라 끄기' : '카메라로 스캔'}
             </button>
-            {camera && <span className="muted small">QR을 화면 가운데에 비추세요</span>}
+            {camera && <span className="muted small">QR을 화면에 크게, 20~30cm 거리에서 비추세요 (휴대폰 화면 밝기를 올리면 잘 읽힙니다)</span>}
           </div>
           {cameraError && <div className="error">{cameraError}</div>}
           {camera && <video ref={video} className="gate-camera" muted playsInline />}

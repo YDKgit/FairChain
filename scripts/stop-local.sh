@@ -2,7 +2,7 @@
 # scripts/run-local.sh 로 띄운 것을 모두 끈다 (DB 파일 · 노드 장부는 남김)
 cd "${0:a:h}/.."
 LOG=data/logs
-for f in example fairchain redis; do
+for f in https example fairchain redis; do
   [[ -f $LOG/$f.pid ]] && kill $(cat $LOG/$f.pid) 2>/dev/null
   rm -f $LOG/$f.pid
 done

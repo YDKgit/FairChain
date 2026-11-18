@@ -83,12 +83,17 @@ EXAMPLE_OPERATOR_PASSWORD=$OPERATOR_PW EXAMPLE_STAFF_PASSWORD=$STAFF_PW EXAMPLE_
 echo $! > $LOG/example.pid
 wait_port 8080 예제서버
 
+# 휴대폰에서 카메라(QR 스캔)를 쓰려면 https가 필요하다 — 8443에서 예제서버로 넘겨 준다
+nohup python3 scripts/https-proxy.py 8443 8080 > $LOG/https.log 2>&1 &
+echo $! > $LOG/https.pid
+
 cat <<EOF
 
 실행 완료
   예제 예매 사이트     http://localhost:8080          회원: 로그인 화면의 시연 계정 (비밀번호 demo1234)
     운영자            http://localhost:8080/admin    operator / $OPERATOR_PW
     게이트 스태프      http://localhost:8080/gate     staff / $STAFF_PW
+    휴대폰에서        https://$(ipconfig getifaddr en0 2>/dev/null || echo 내IP):8443   (인증서 경고는 '계속' — 카메라 스캔 가능)
   FairChain 점검 화면  http://localhost:8081/inspector.html   admin / $ADMIN_PW
   FairChain API Key    $API_KEY
   노드 상태            python3 scripts/raft_nodes.py status
