@@ -353,6 +353,24 @@ class FairChainApiTest {
         call(AdminApi.ISSUE_SEATS, new SeatIssueRequestDto(eventId, records)).andExpect(status().isOk());
     }
 
+    @Test
+    void 남의_티켓을_취소하거나_입장_처리하는_기록은_403() throws Exception {
+        issueSeats(2);
+        call(ReservationApi.RECORDS, record(RecordType.PURCHASE, 1, 1L, 2)).andExpect(status().isOk());
+        call(ReservationApi.RECORDS, record(RecordType.PURCHASE, 2, 1L, 2)).andExpect(status().isOk());
+
+        // 회원 2의 이름으로 회원 1의 티켓을 취소 · 입장 → 거절, 본인이면 통과
+        call(ReservationApi.RECORDS, record(RecordType.CANCEL, 1, 2L, 3)).andExpect(status().isForbidden());
+        call(ReservationApi.RECORDS, record(RecordType.CHECKIN, 2, 2L, 3)).andExpect(status().isForbidden());
+        call(ReservationApi.RECORDS, record(RecordType.CANCEL, 1, 1L, 3)).andExpect(status().isOk());
+        call(ReservationApi.RECORDS, record(RecordType.CHECKIN, 2, 1L, 3)).andExpect(status().isOk());
+
+        // 취소된 티켓은 다른 회원이 살 수 있고, 그 뒤로는 새 주인만 취소할 수 있다
+        call(ReservationApi.RECORDS, record(RecordType.PURCHASE, 1, 2L, 4)).andExpect(status().isOk());
+        call(ReservationApi.RECORDS, record(RecordType.CANCEL, 1, 1L, 5)).andExpect(status().isForbidden());
+        call(ReservationApi.RECORDS, record(RecordType.CANCEL, 1, 2L, 5)).andExpect(status().isOk());
+    }
+
     private RecordRequestDto record(RecordType type, long seat, Long userId, long version) {
         return recordFor(EVENT, type, seat, userId, version);
     }

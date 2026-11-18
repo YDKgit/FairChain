@@ -134,7 +134,7 @@ public class ReservationService {
 
     /**
      * 좌석 하나의 일생: ISSUE v1 → PURCHASE → CANCEL ⇄ PURCHASE(재판매) … → CHECKIN(끝).
-     * 버전은 1씩 오른다. 이전 기록의 블록 확정(CONFIRMED)은 기다리지 않는다 — 블록 기록은 대기 줄로 뒤에서 처리.
+     * 버전은 1씩 오른다. 취소 · 입장은 산 회원 본인의 기록이어야 한다. 이전 기록의 블록 확정(CONFIRMED)은 기다리지 않는다 — 블록 기록은 대기 줄로 뒤에서 처리.
      */
     private void checkTransition(String clientId, RecordRequestDto dto, AnchorRecord latest) {
         if (latest == null) {
@@ -156,6 +156,13 @@ public class ReservationService {
         if (!allowed(latest.getType(), dto.type())) {
             throw new FairChainException(ErrorCode.CONFLICT,
                     latest.getType() + " 다음에 " + dto.type() + " 기록은 올 수 없습니다");
+        }
+        // 취소 · 입장은 그 티켓을 산 회원의 이름으로만 — 고객사가 남의 티켓을 취소 · 입장 처리하는 기록은 받지 않는다
+        // (여기까지 왔으면 바로 앞 기록은 PURCHASE다)
+        if ((dto.type() == RecordType.CANCEL || dto.type() == RecordType.CHECKIN)
+                && !dto.userId().equals(latest.getUserId())) {
+            throw new FairChainException(ErrorCode.FORBIDDEN,
+                    dto.type() + " 기록의 회원이 이 티켓을 산 회원과 다릅니다");
         }
     }
 
