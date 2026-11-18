@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import jsQR from 'jsqr';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { get, post } from '../api.js';
 import LoginForm from '../components/LoginForm.jsx';
@@ -14,16 +15,55 @@ export default function Gate() {
   const check = useCallback(() => get('/api/staff/me').then(setStaff).catch(() => setStaff(null)), []);
   useEffect(() => { check(); }, [check]);
 
-  const scan = async (e) => {
-    e.preventDefault();
-    if (!token.trim()) return;
+  const [camera, setCamera] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const video = useRef(null);
+
+  const submit = useCallback(async (value) => {
+    const qrToken = value.trim();
+    if (!qrToken) return;
     try {
-      const r = await post('/api/staff/scan', { qrToken: token.trim() });
+      const r = await post('/api/staff/scan', { qrToken });
       setResult(r);
-      setHistory((h) => [{ ...r, at: new Date().toISOString(), token: token.trim().slice(0, 8) }, ...h].slice(0, 10));
+      setHistory((h) => [{ ...r, at: new Date().toISOString(), token: qrToken.slice(0, 8) }, ...h].slice(0, 10));
       setToken('');
     } catch (err) { setResult({ success: false, reason: err.message }); }
-  };
+  }, []);
+
+  const scan = (e) => { e.preventDefault(); submit(token); };
+
+  // 카메라 스캔 — 화면에 QR이 잡히면 토큰을 읽어 바로 확인한다. 같은 QR은 3초 동안 다시 보내지 않는다
+  useEffect(() => {
+    if (!camera) return undefined;
+    let stream; let timer; let stopped = false;
+    let last = ''; let lastAt = 0;
+    const canvas = document.createElement('canvas');
+    (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 주소에서는 카메라를 쓸 수 없습니다 (localhost 또는 https에서만 가능)');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+        video.current.srcObject = stream;
+        await video.current.play();
+        timer = setInterval(() => {
+          const v = video.current;
+          if (!v || !v.videoWidth) return;
+          canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(v, 0, 0);
+          const found = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+          if (!found?.data) return;
+          if (found.data === last && Date.now() - lastAt < 3000) return;
+          last = found.data; lastAt = Date.now();
+          submit(found.data);
+        }, 200);
+      } catch (err) {
+        setCameraError(err.name === 'NotAllowedError' ? '카메라 권한이 거부되었습니다. 주소창의 카메라 아이콘에서 허용해 주세요.' : (err.message || '카메라를 열 수 없습니다'));
+        setCamera(false);
+      }
+    })();
+    return () => { stopped = true; clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
+  }, [camera, submit]);
 
   if (staff === undefined) return <div className="boot">확인 중…</div>;
   if (staff === null) {
@@ -45,7 +85,15 @@ export default function Gate() {
       <div className="container narrow">
         <div className="card">
           <h3>QR 스캔</h3>
-          <p className="muted small">관객의 입장 QR 토큰을 붙여 넣으세요 (내 티켓 → 입장 QR → 토큰 복사). 티켓 해시값을 FairChain 노드 기록과 대조합니다.</p>
+          <p className="muted small">관객의 입장 QR을 카메라에 비추거나 토큰을 붙여 넣으세요. 티켓 해시값을 FairChain 노드 기록과 대조합니다.</p>
+          <div className="row gap" style={{ marginBottom: 12 }}>
+            <button type="button" className={camera ? 'btn ghost' : 'btn'} onClick={() => { setCameraError(''); setCamera((c) => !c); }}>
+              {camera ? '카메라 끄기' : '카메라로 스캔'}
+            </button>
+            {camera && <span className="muted small">QR을 화면 가운데에 비추세요</span>}
+          </div>
+          {cameraError && <div className="error">{cameraError}</div>}
+          {camera && <video ref={video} className="gate-camera" muted playsInline />}
           <form className="row gap" onSubmit={scan}>
             <input className="grow mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder="qr 토큰" autoFocus />
             <button className="btn">확인</button>

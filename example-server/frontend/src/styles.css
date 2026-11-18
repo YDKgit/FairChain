@@ -603,3 +603,6 @@ label.row select { width: auto; }
 .poster:has(.ccard-rank) .poster-genre { visibility: hidden; }
 .steps-bar { gap: 12px; }
 .steps-bar li + li::before { margin: 0 4px 0 0; }
+
+/* 게이트 — 카메라 스캔 */
+.gate-camera { display: block; width: 100%; max-height: 360px; object-fit: cover; border-radius: 14px; background: #111; margin-bottom: 12px; }
