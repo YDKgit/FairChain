@@ -42,15 +42,19 @@ export default function Queue() {
       try {
         apply(await post(`/api/queue/${id}`));    // 이미 줄에 있으면 현재 상태를 돌려준다
       } catch (e) { if (alive) setError(e.message); return; }
-      // 순번 변화는 서버가 밀어 준다 (SSE). 끊기면 2초마다 상태를 물어본다
+      // 순번 변화는 서버가 밀어 준다 (SSE)
       try {
         es.current = new EventSource(`/api/queue/${id}/subscribe`);
         es.current.addEventListener('status', (ev) => apply(JSON.parse(ev.data)));
         es.current.onerror = () => { es.current?.close(); es.current = null; };
       } catch { /* 폴링으로 */ }
     })();
+    // SSE가 끊기면 2초마다, 이어져 있어도 6초마다 상태를 직접 물어본다.
+    // 서버 사이의 순번 스트림이 조용히 멈춰도 입장 허용을 놓치지 않기 위해서다
+    let tick = 0;
     const poll = setInterval(() => {
-      if (!es.current) get(`/api/queue/${id}/status`).then(apply).catch(() => {});
+      tick += 1;
+      if (!es.current || tick % 3 === 0) get(`/api/queue/${id}/status`).then(apply).catch(() => {});
     }, 2000);
     return () => { alive = false; clearInterval(poll); es.current?.close(); };
   }, [id, loggedIn, navigate, toast]);

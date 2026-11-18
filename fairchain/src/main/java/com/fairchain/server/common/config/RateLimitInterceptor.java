@@ -7,6 +7,7 @@ import com.fairchain.server.queue.repository.IdempotencyKeyCache;
 import com.fairchain.server.queue.repository.MacroBlockCounter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
@@ -42,6 +43,11 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
+        // SSE 같은 비동기 응답은 같은 요청이 한 번 더 이 인터셉터를 지난다(ASYNC 디스패치). 그것까지 세면
+        // 한도에 걸려 이미 열린 순번 스트림이 끊기므로, 처음 들어온 요청만 센다
+        if (request.getDispatcherType() != DispatcherType.REQUEST) {
+            return true;
+        }
         Long userId = readLong(request, "userId");
         if (userId != null) {
             long count = macroBlockCounter.increment(userId, System.currentTimeMillis() / 1000);

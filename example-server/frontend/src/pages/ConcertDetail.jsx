@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { fetchConcert, get, post } from '../api.js';
+import { fetchConcert, get } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Poster from '../components/Poster.jsx';
 import { SaleBadge } from '../components/Badge.jsx';
@@ -54,17 +54,11 @@ export default function ConcertDetail() {
   const date = dateParts(concert.eventStart);
   const rate = bookedRate(concert);
 
-  const book = async () => {
+  const book = () => {
     if (!me) { navigate(`/login?next=/concert/${id}`); return; }
     if (myTicket) { toast('이미 이 공연의 티켓을 가지고 있습니다 (1인 1매)'); return; }
-    if (config.queueEnabled) {
-      try {
-        await post(`/api/queue/${id}`);
-        navigate(`/queue/${id}`);
-      } catch (e) { toast(e.message, 'error'); }
-    } else {
-      navigate(`/seats/${id}`);
-    }
+    // 대기열 진입 요청은 대기열 화면이 한다 (여기서도 보내면 같은 요청이 두 번 나간다)
+    navigate(config.queueEnabled ? `/queue/${id}` : `/seats/${id}`);
   };
 
   const showRealloc = realloc && (state === 'soldout' || realloc.heldCount > 0 || realloc.roundStatus);

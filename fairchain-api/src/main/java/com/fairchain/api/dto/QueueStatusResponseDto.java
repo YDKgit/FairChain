@@ -1,5 +1,7 @@
 package com.fairchain.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * 대기열 상태.
  *
@@ -18,6 +20,8 @@ public record QueueStatusResponseDto(String state, Long rank, Long waitingCount)
     /** 줄에 선 적이 없음 */
     public static final String NOT_FOUND = "NOT_FOUND";
 
+    /** 계산한 값이라 JSON에는 싣지 않는다 (실으면 받는 쪽이 모르는 필드로 읽다 실패한다) */
+    @JsonIgnore
     public boolean isWaiting() {
         return WAITING.equals(state);
     }

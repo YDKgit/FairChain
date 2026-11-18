@@ -27,7 +27,9 @@ public class RestHttpRequester implements HttpRequester {
     private final String apiKey;
     private final Duration timeout;
     private final HttpClient sseClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** 모르는 필드는 건너뛴다 — 상대 서버가 필드를 더해도 SSE 수신이 멈추지 않게 */
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public RestHttpRequester(String baseUrl, String apiKey, Duration timeout) {
         this(baseUrl, FairChainHeaders.API_KEY, apiKey, timeout);
