@@ -5,6 +5,21 @@ import { get, post } from '../api.js';
 import LoginForm from '../components/LoginForm.jsx';
 import { when } from '../utils.js';
 
+/** 결과를 소리 · 진동으로도 알린다 — 허용은 높은 음 한 번, 거절은 낮은 음 두 번 */
+let audio = null;
+function signal(ok) {
+  try { navigator.vibrate?.(ok ? 100 : [150, 80, 150]); } catch { /* 진동이 없는 기기 */ }
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    (ok ? [[880, 0, 0.18]] : [[220, 0, 0.18], [220, 0.26, 0.18]]).forEach(([freq, at, len]) => {
+      const osc = audio.createOscillator(); const gain = audio.createGain();
+      osc.type = ok ? 'sine' : 'square'; osc.frequency.value = freq; gain.gain.value = 0.2;
+      osc.connect(gain); gain.connect(audio.destination);
+      osc.start(audio.currentTime + at); osc.stop(audio.currentTime + at + len);
+    });
+  } catch { /* 소리를 못 내도 화면은 보인다 */ }
+}
+
 /** 게이트 스태프 — QR 토큰을 찍으면 FairChain 기록과 대조해 입장 허용 · 거절 */
 export default function Gate() {
   const [staff, setStaff] = useState(undefined);   // undefined: 확인 중, null: 로그인 필요
@@ -19,20 +34,34 @@ export default function Gate() {
   const [cameraError, setCameraError] = useState('');
   const video = useRef(null);
 
-  const submit = useCallback(async (value) => {
+  const [flash, setFlash] = useState(null);         // 카메라로 찍은 결과를 화면 가득 보여 준다 (그동안 스캔은 멈춤)
+  const paused = useRef(false);
+  const flashTimer = useRef(null);
+
+  const closeFlash = useCallback(() => { clearTimeout(flashTimer.current); paused.current = false; setFlash(null); }, []);
+
+  const submit = useCallback(async (value, fromCamera = false) => {
     const qrToken = value.trim();
     if (!qrToken) return;
-    try {
-      const r = await post('/api/staff/scan', { qrToken });
-      setResult(r);
-      setHistory((h) => [{ ...r, at: new Date().toISOString(), token: qrToken.slice(0, 8) }, ...h].slice(0, 10));
-      setToken('');
-    } catch (err) { setResult({ success: false, reason: err.message }); }
-  }, []);
+    if (fromCamera) paused.current = true;          // 답이 오고 결과 화면이 닫힐 때까지 다음 QR을 읽지 않는다
+    let r;
+    try { r = await post('/api/staff/scan', { qrToken }); }
+    catch (err) { r = { success: false, reason: err.message }; }
+    setResult(r);
+    setHistory((h) => [{ ...r, at: new Date().toISOString(), token: qrToken.slice(0, 8) }, ...h].slice(0, 10));
+    setToken('');
+    if (fromCamera) {
+      signal(r.success);
+      setFlash(r);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(closeFlash, 3000);
+    }
+  }, [closeFlash]);
 
   const scan = (e) => { e.preventDefault(); submit(token); };
 
-  // 카메라 스캔 — 화면에 QR이 잡히면 토큰을 읽어 바로 확인한다. 같은 QR은 3초 동안 다시 보내지 않는다
+  // 카메라 스캔 — 화면에 QR이 잡히면 토큰을 읽어 바로 확인한다.
+  // 같은 QR은 카메라에서 치웠다가 5초가 지나야 다시 보낸다 (계속 비추고 있어도 한 번만 확인된다)
   useEffect(() => {
     if (!camera) return undefined;
     let stream; let timer; let stopped = false;
@@ -53,7 +82,7 @@ export default function Gate() {
         await video.current.play();
         timer = setInterval(async () => {
           const v = video.current;
-          if (!v || !v.videoWidth || busy) return;
+          if (!v || !v.videoWidth || busy || paused.current) return;
           busy = true;
           try {
             let text = '';
@@ -68,9 +97,11 @@ export default function Gate() {
                 { inversionAttempts: 'attemptBoth' })?.data || '';
             }
             if (!text) return;
-            if (text === last && Date.now() - lastAt < 3000) return;
-            last = text; lastAt = Date.now();
-            submit(text);
+            const again = text === last && Date.now() - lastAt < 5000;
+            last = text; lastAt = Date.now();          // 보이는 동안 계속 갱신한다
+            if (again) return;
+            await submit(text, true);
+            lastAt = Date.now();
           } finally { busy = false; }
         }, 200);
       } catch (err) {
@@ -78,8 +109,8 @@ export default function Gate() {
         setCamera(false);
       }
     })();
-    return () => { stopped = true; clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
-  }, [camera, submit]);
+    return () => { stopped = true; clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); closeFlash(); };
+  }, [camera, submit, closeFlash]);
 
   if (staff === undefined) return <div className="boot">확인 중…</div>;
   if (staff === null) {
@@ -93,6 +124,14 @@ export default function Gate() {
 
   return (
     <div className="gate">
+      {flash && (
+        <div className={`scan-flash ${flash.success ? 'ok' : 'bad'}`} onClick={closeFlash}>
+          <div className="scan-flash-mark">{flash.success ? '✓' : '✕'}</div>
+          <h1>{flash.success ? '입장 허용' : '입장 거절'}</h1>
+          <p>{flash.success ? `${flash.concertTitle} · ${flash.seatNumber}` : flash.reason}</p>
+          <span>화면을 누르면 바로 다음 관객을 스캔합니다</span>
+        </div>
+      )}
       <header className="admin-top">
         <div className="logo"><span className="logo-mark dark">F</span><span className="logo-text">Fair<b>Ticket</b> <small>입장 게이트</small></span></div>
         <span className="muted small">{staff.name}</span>

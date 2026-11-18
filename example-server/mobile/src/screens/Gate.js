@@ -31,9 +31,17 @@ export default function Gate() {
     setBusy(false);
   };
 
-  const check = useCallback(async (value) => {
+  const last = useRef({ token: '', at: 0 });
+
+  const check = useCallback(async (value, fromCamera = false) => {
     const qrToken = String(value || '').trim();
     if (!qrToken || lock.current) return;
+    if (fromCamera) {
+      // 방금 확인한 QR이 아직 카메라 앞에 있으면 다시 보내지 않는다 (치우고 5초가 지나야 다시 확인)
+      const again = qrToken === last.current.token && Date.now() - last.current.at < 5000;
+      last.current = { token: qrToken, at: Date.now() };
+      if (again) return;
+    }
     lock.current = true;                         // 카메라는 같은 QR을 1초에도 여러 번 알려 준다 — 한 번만 보낸다
     setScanning(false);
     let r;
@@ -43,6 +51,7 @@ export default function Gate() {
     setResult(r);
     setHistory((h) => [{ ...r, at: new Date(), token: qrToken.slice(0, 8) }, ...h].slice(0, 10));
     setToken('');
+    last.current.at = Date.now();
     lock.current = false;
   }, []);
 
@@ -86,7 +95,7 @@ export default function Gate() {
             style={st.camera}
             facing="back"
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={({ data }) => check(data)}
+            onBarcodeScanned={({ data }) => check(data, true)}
           />
           <View style={st.frame} pointerEvents="none" />
           <Text style={st.cameraHint}>관객의 입장 QR을 네모 안에 맞추세요</Text>
