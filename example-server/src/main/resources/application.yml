@@ -31,4 +31,5 @@ example:
     staff-login-id: ${EXAMPLE_STAFF_ID:staff}
     staff-password: ${EXAMPLE_STAFF_PASSWORD:}
     member-password: ${EXAMPLE_MEMBER_PASSWORD:demo1234}   # 시연 회원 5명(김철수 …) 공통 비밀번호, 비우면 만들지 않음
+    load-members: ${EXAMPLE_LOAD_MEMBERS:0}     # 부하 테스트용 회원 load1 … loadN (비밀번호 load1234)을 미리 만든다. 0이면 안 만듦
     concerts: true

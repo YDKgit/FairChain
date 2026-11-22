@@ -40,7 +40,9 @@ public record ExampleProperties(
      * 개발용 초기 계정 · 더미 공연 (비밀번호가 비어 있으면 그 계정은 만들지 않음).
      *
      * @param memberPassword 시연 회원 5명의 공통 비밀번호 (비어 있으면 시연 회원을 만들지 않음)
+     * @param loadMembers    부하 테스트용 회원 수 (load1 … loadN, 비밀번호 load1234). 0이면 만들지 않음
      */
     public record Seed(String operatorLoginId, String operatorPassword, String staffLoginId, String staffPassword,
-                       boolean concerts, @DefaultValue("demo1234") String memberPassword) {}
+                       boolean concerts, @DefaultValue("demo1234") String memberPassword,
+                       @DefaultValue("0") int loadMembers) {}
 }

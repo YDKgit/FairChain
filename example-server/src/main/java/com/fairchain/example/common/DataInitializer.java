@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -79,6 +80,16 @@ public class DataInitializer implements ApplicationRunner {
                     memberRepository.save(new Member(demo[0], hash, demo[1], "010-0000-0000"));
                 }
             }
+        }
+        if (seed.loadMembers() > 0 && !memberRepository.existsByLoginId("load1")) {
+            // 부하 테스트용 회원을 미리 만든다. 가입 · 로그인마다 드는 비밀번호 해시 시간이 측정을 가리지 않게
+            // 가장 가벼운 해시 강도(4)로 한 번만 계산해 모두에게 쓴다 — 로그인 검사 시간은 저장된 해시의 강도를 따른다
+            String hash = new BCryptPasswordEncoder(4).encode("load1234");
+            List<Member> batch = new ArrayList<>();
+            for (int i = 1; i <= seed.loadMembers(); i++) {
+                batch.add(new Member("load" + i, hash, "부하" + i, "010-0000-0000"));
+            }
+            memberRepository.saveAll(batch);
         }
         if (seed.concerts() && concertRepository.count() == 0) {
             LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);

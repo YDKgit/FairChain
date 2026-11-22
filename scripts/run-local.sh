@@ -1,5 +1,6 @@
 #!/bin/zsh
-# 로컬 전체 실행 (macOS · Linux): Redis(없으면 시연용 대체 서버) · 노드 · FairChain · 예제서버를 창 없이 띄운다.
+# 로컬 전체 실행 (macOS · Linux): Redis · 노드 · FairChain · 예제서버를 창 없이 띄운다.
+# Redis는 진짜 redis-server를 쓴다 (없으면: brew install redis). 끄면 대기열 데이터는 사라진다.
 # Windows는 scripts\run-local.ps1.
 #
 #   ./scripts/run-local.sh                 빌드 후 실행 (DB는 data/ 아래 H2 파일, 다시 켜도 남음)
@@ -50,11 +51,14 @@ fi
 echo '[1/4] Redis'
 if up 6379; then
   echo '  이미 실행 중인 Redis를 사용합니다 (:6379)'
-else
-  echo '  Redis가 없어 시연용 대체 서버를 띄웁니다 (scripts/dev-redis.py) — 부하 수치를 잴 때는 진짜 Redis를 쓸 것'
-  nohup python3 scripts/dev-redis.py 6379 > $LOG/redis.log 2>&1 &
+elif command -v redis-server > /dev/null; then
+  # 디스크에 저장하지 않는다 — 대기열 · 입장권은 서버를 다시 켜면 비우는 데이터다
+  nohup redis-server --port 6379 --bind 127.0.0.1 --save '' --appendonly no > $LOG/redis.log 2>&1 &
   echo $! > $LOG/redis.pid
   wait_port 6379 Redis
+else
+  echo '  redis-server가 없습니다. 설치한 뒤 다시 실행하세요:  brew install redis'
+  exit 1
 fi
 
 echo "[2/4] 노드 (리더 층 3대 + 팀마다 팀원 ${MEMBERS}대)"

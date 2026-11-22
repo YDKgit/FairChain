@@ -32,7 +32,7 @@ def P(name, default):
 
 def test_plan(*children):
     variables = {
-        'HOST': P('host', 'localhost'), 'PORT': P('port', '8080'), 'CONCERT': P('concertId', '2'),
+        'HOST': P('host', 'localhost'), 'PORT': P('port', '8080'), 'CONCERT': P('concertId', '2'), 'QWAIT': P('queueWait', '0'), 'TAG': P('tag', ''), 'OFFSET': P('userOffset', '0'), 'PREMADE': P('premade', 'false'),
         'OP_ID': P('operatorId', 'operator'), 'OP_PW': P('operatorPw', 'operator1234'),
         'RUN': '${__time(HHmmss,)}',          # 회원 아이디에 붙여 실행마다 새 회원을 만든다
     }
@@ -157,10 +157,10 @@ def think(base, spread):
                 + sp('ConstantTimer.delay', base) + sp('RandomTimer.range', spread) + '</UniformRandomTimer>')
 
 
-def all_at_once(name):
-    """그룹의 스레드가 모두 이 자리에 올 때까지 기다렸다가 한꺼번에 보낸다 (30초 지나면 온 만큼만)"""
+def all_at_once(name, timeout_ms=30000):
+    """그룹의 스레드가 모두 이 자리에 올 때까지 기다렸다가 한꺼번에 보낸다 (timeout_ms 지나면 온 만큼만)"""
     return node(f'<SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="{escape(name)}" enabled="true">'
-                '<intProp name="groupSize">0</intProp><longProp name="timeoutInMs">30000</longProp></SyncTimer>')
+                '<intProp name="groupSize">0</intProp><longProp name="timeoutInMs">' + str(timeout_ms) + '</longProp></SyncTimer>')
 
 
 def summary():
@@ -189,28 +189,66 @@ def join_and_login(prefix, tag):
         http(f'{prefix} 로그인', 'POST', '/api/members/login', body='{"loginId":"%s","password":"load1234"}' % login_id))
 
 
+LOGIN_ID = '''
+// -Jpremade=true 면 서버가 켜질 때 만들어 둔 회원(load1 … loadN, EXAMPLE_LOAD_MEMBERS)을 쓴다.
+// JMeter를 여러 개 띄울 때는 -JuserOffset 으로 번호가 겹치지 않게 한다. 아니면 준비 단계에서 가입시킨 회원
+def n = ctx.getThreadNum() + 1
+vars.put('loginId', props.getProperty('premade', 'false') == 'true'
+    ? 'load' + ((vars.get('OFFSET') as int) + n)
+    : '%s' + vars.get('RUN') + vars.get('TAG') + '_' + n)
+'''
+
+
+def join_only(tag, name_tag):
+    """회원가입만 (준비 단계). 아이디는 login_only와 같은 규칙"""
+    return http('준비 회원가입', 'POST', '/api/members',
+                body='{"loginId":"%s${RUN}${TAG}_${__threadNum}","password":"load1234","name":"부하%s${__threadNum}","contact":"010-0000-0000"}' % (tag, name_tag))
+
+
+def login_only(prefix, tag):
+    """준비 단계에서 미리 만든 회원으로 로그인만 한다"""
+    return http(f'{prefix} 로그인 (미리 만든 회원)', 'POST', '/api/members/login',
+                groovy('JSR223PreProcessor', '회원 아이디 정하기', LOGIN_ID % tag), body='{"loginId":"${loginId}","password":"load1234"}')
+
+
 QUEUE_STATE = '''
 // 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = 'NONE'
 try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
 vars.put('qstate', state)
 vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+// 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
+// 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
+def inLine = prev.isSuccessful() && (state == 'WAITING' || state == 'ADMITTED')
+vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as String)
 '''
 
 INIT_VARS = '''
-vars.put('qtry', '0'); vars.put('qstate', 'NONE'); vars.put('rtry', '0'); vars.put('reserved', 'false')
+vars.put('qtry', '0'); vars.put('qfail', '0'); vars.put('qstate', 'NONE'); vars.put('rtry', '0'); vars.put('reserved', 'false')
 vars.put('seatId', ''); vars.put('ticketId', ''); vars.put('vtry', '0'); vars.put('vstate', 'NONE')
 '''
 
 
+WAIT_UNTIL = '''
+// -JenterAt=<시각(ms)> 을 주면 그 시각까지 기다린다. JMeter 한 개가 만들 수 있는 스레드 수에 한도가 있어
+// (macOS는 프로세스당 약 6천 개) 여러 개를 띄울 때, 모두 같은 순간에 대기열에 들어가게 하려는 것이다
+SampleResult.setIgnore()
+def at = (props.getProperty('enterAt', '0') as long)
+def left = at - System.currentTimeMillis()
+if (left > 0) Thread.sleep(left)
+'''
+
+
 def enter_queue_and_wait(prefix, rush=None):
-    """대기열에 들어가 입장 허용(ADMITTED)이 될 때까지 1초마다 순번을 확인한다 (최대 3분)"""
+    """대기열에 들어가 입장 허용(ADMITTED)이 될 때까지 1초마다 순번을 확인한다.
+    입장해야 재배정 명단에 오르므로 기본은 입장할 때까지 기다린다 (-JqueueWait 초를 주면 그만큼만)"""
     enter_children = [groovy('JSR223PreProcessor', '변수 초기화', INIT_VARS), post('대기열 상태 읽기', QUEUE_STATE)]
     if rush:
-        enter_children.insert(0, all_at_once(rush))
-    return [
+        enter_children.insert(0, all_at_once(rush, 600000))    # 수천 명이 로그인을 마칠 때까지 (최대 10분)
+    gate = [groovy('JSR223Sampler', f'{prefix} 정해진 시각까지 대기 (enterAt)', WAIT_UNTIL)] if rush else []
+    return gate + [
         http(f'{prefix} 대기열 진입', 'POST', '/api/queue/${CONCERT}', *enter_children, body='{}'),
-        while_(f'{prefix} 입장 허용까지 대기', '"${qstate}" != "ADMITTED" && ${qtry} < 180',
+        while_(f'{prefix} 입장 허용까지 대기', '"${qstate}" != "ADMITTED" && ${qfail} < 30 && (${QWAIT} == 0 || ${qtry} < ${QWAIT})',
                http(f'{prefix} 대기 순번 확인', 'GET', '/api/queue/${CONCERT}/status', wait(1000), post('대기열 상태 읽기', QUEUE_STATE))),
     ]
 
@@ -324,12 +362,20 @@ def setup_group():
         setup=True, comment='예매 가능한 좌석이 -Jseats 보다 적으면 모자란 만큼 등록한다')
 
 
+def setup_users():
+    """준비: A에 쓸 회원을 미리 만든다 — 가입(비밀번호 해시)에 걸리는 시간이 '동시에 진입'을 흩뜨리지 않게"""
+    return thread_group(
+        '준비: A 회원 미리 만들기', P('users', '100'), P('rampUp', '5'),
+        if_('서버가 미리 만든 회원을 쓰지 않을 때만', '"${PREMADE}" != "true"', join_only('a', 'a')),
+        setup=True, comment='-Jusers 명의 회원을 미리 가입시킨다 (A는 로그인만 한다)')
+
+
 def scenario_a():
     """A. 예매 오픈 폭주 — 모두가 같은 순간에 대기열에 들어가 좌석을 잡고, 티켓이 블록체인 검증 완료가 될 때까지"""
     return thread_group(
         'A. 예매 오픈 폭주', P('users', '100'), P('rampUp', '5'),
         cookies(),
-        join_and_login('A-0', 'a'),
+        login_only('A-0', 'a'),
         *enter_queue_and_wait('A-1', rush='모두 모이면 동시에 진입'),
         if_('입장 허용됨', '"${qstate}" == "ADMITTED"',
             while_('A-2 좌석 잡기 (최대 5번)', '"${reserved}" != "true" && ${rtry} < 5',
@@ -341,7 +387,7 @@ def scenario_a():
                 transaction('A-4 예매 후 블록체인 검증 완료까지',
                             while_('검증 완료까지 확인 (최대 60초)', '"${vstate}" != "VERIFIED" && ${vtry} < 120',
                                    http('A-4 내 티켓 확인', 'GET', '/api/tickets/${ticketId}', wait(500), post('검증 상태 읽기', VERIFY_STATE)))))),
-        comment='-Jusers 명, -JrampUp 초에 걸쳐 가입 · 로그인한 뒤 한꺼번에 대기열 진입')
+        comment='-Jusers 명이 미리 만든 회원으로 -JrampUp 초에 걸쳐 로그인한 뒤 한꺼번에 대기열 진입')
 
 
 def scenario_b():
@@ -385,7 +431,7 @@ def teardown_group():
 
 
 def build():
-    plan = test_plan(http_defaults(), json_header(), setup_group(), scenario_b(), scenario_a(), scenario_c(), scenario_d(),
+    plan = test_plan(http_defaults(), json_header(), setup_group(), setup_users(), scenario_b(), scenario_a(), scenario_c(), scenario_d(),
                      teardown_group(), summary())
     xml = ('<?xml version="1.0" encoding="UTF-8"?>\n<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree>'
            + plan + '</hashTree></jmeterTestPlan>\n')
