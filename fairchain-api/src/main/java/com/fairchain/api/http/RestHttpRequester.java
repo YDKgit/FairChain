@@ -1,7 +1,7 @@
 package com.fairchain.api.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import java.io.UncheckedIOException;
@@ -41,8 +41,10 @@ public class RestHttpRequester implements HttpRequester {
         this.apiKey = apiKey == null || apiKey.isBlank() ? null : apiKey;
         this.timeout = timeout;
 
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(timeout);
+        // 연결을 재사용하는 JDK HttpClient를 쓴다. 요청마다 새 연결을 맺으면 요청이 몰릴 때
+        // 운영체제의 임시 포트가 바닥나 "Can't assign requested address"로 실패한다 (6천 명 부하 테스트에서 확인)
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(timeout).build());
         factory.setReadTimeout(timeout);
         RestClient.Builder builder = RestClient.builder()
                 .baseUrl(baseUrl)

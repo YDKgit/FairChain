@@ -5,6 +5,11 @@ server:
 spring:
   profiles:
     default: local              # 프로필을 따로 안 주면 application-local.yml 사용 (없으면 무시)
+  task:
+    scheduling:
+      pool:
+        size: 4                 # 주기 작업(입장 허용 · 순번 전송 · 대시보드 · 블록 기록)이 서로를 막지 않게.
+                                # 기본값 1이면 블록 기록이 노드 응답을 기다리는 동안 입장 허용도 멈춘다
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/fairchain?serverTimezone=Asia/Seoul}
     username: ${DB_USERNAME:fairchain}
@@ -22,7 +27,7 @@ spring:
 
 fairchain:
   queue:
-    admit-per-second: 10        # 1초마다 입장 허용 인원 (SD-202-03)
+    admit-per-second: 100       # 1초마다 입장 허용 인원 (SD-202-03)
     admission-ttl: 5m           # 입장 권한 유지 시간
   rate-limit:
     per-second: 5               # 회원 1명의 초당 요청 한도 (매크로 차단)
