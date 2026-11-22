@@ -143,7 +143,7 @@ const st = StyleSheet.create({
   muted: { color: C.sub, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cameraBox: { height: 380, borderRadius: 22, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  camera: { ...StyleSheet.absoluteFillObject },
+  camera: { ...StyleSheet.absoluteFill },
   frame: { width: 230, height: 230, borderRadius: 22, borderWidth: 3, borderColor: '#fff' },
   cameraHint: { position: 'absolute', bottom: 16, color: '#fff', fontSize: 14, fontWeight: '700' },
   result: { borderRadius: 22, padding: 24, alignItems: 'center', gap: 6 },

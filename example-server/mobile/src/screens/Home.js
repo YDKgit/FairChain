@@ -97,7 +97,7 @@ export default function Home() {
 const st = StyleSheet.create({
   page: { padding: 16, gap: 12, paddingBottom: 32 },
   hero: { flexDirection: 'row', gap: 14, alignItems: 'center', borderRadius: 22, padding: 18, overflow: 'hidden', backgroundColor: C.dark },
-  heroBg: { ...StyleSheet.absoluteFillObject, opacity: 0.55 },
+  heroBg: { ...StyleSheet.absoluteFill, opacity: 0.55 },
   heroKicker: { color: '#fde68a', fontSize: 12, fontWeight: '700' },
   heroTitle: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 26 },
   heroSub: { color: '#e5e5ef', fontSize: 13 },

@@ -26,3 +26,4 @@ data/
 
 # 부하 테스트 결과
 loadtest/results/
+__pycache__/
