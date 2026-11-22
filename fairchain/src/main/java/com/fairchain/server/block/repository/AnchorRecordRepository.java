@@ -22,6 +22,9 @@ public interface AnchorRecordRepository extends JpaRepository<AnchorRecord, Long
 
     List<AnchorRecord> findByBlockStateOrderByIdAsc(BlockState blockState);
 
+    /** 관제 대시보드: 이 고객사 기록 중 블록에 확정된 것 · 확정을 기다리는 것의 수 */
+    long countByClientIdAndBlockState(String clientId, BlockState blockState);
+
     /** 점검 화면: 이 고객사의 최근 기록 (최신순, 페이지 크기만큼) */
     List<AnchorRecord> findByClientIdOrderByIdDesc(String clientId, Pageable pageable);
 

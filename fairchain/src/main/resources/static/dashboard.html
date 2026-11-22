@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FairChain 관제 대시보드</title>
 <link rel="stylesheet" href="/css/console.css">
+<link rel="stylesheet" href="/css/dashboard.css">
 </head>
-<body>
+<body class="dash">
 
 <section id="loginView" class="login">
   <h2>FairChain 관제 대시보드</h2>
-  <p class="hint">운영자 계정으로 로그인하면 고객사 공연별 대기 인원 · 차단된 매크로 · 남은 좌석이 1초마다 갱신됩니다.</p>
+  <p class="hint">운영자 계정으로 로그인하면 대기 인원 · 입장 · 매크로 차단 · 블록 확정 현황이 1초마다 갱신됩니다.</p>
   <form id="loginForm">
     <input id="loginId" placeholder="운영자 아이디" required>
     <input id="password" type="password" placeholder="비밀번호" required>
@@ -20,50 +21,74 @@
 </section>
 
 <div id="app" class="hidden">
-  <header>
-    <h1>FairChain 관제 대시보드</h1>
-    <span class="client">고객사 <b id="clientId"></b> · 1초마다 갱신</span>
-    <span class="spacer"></span>
-    <a class="plain" href="/inspector.html">점검 화면</a>
-    <button id="logout" class="plain">로그아웃</button>
-  </header>
-  <main>
-    <p id="error" class="error"></p>
-    <div class="card">
-      <h2>공연별 지표 (SD-605)</h2>
-      <table>
-        <thead><tr><th>공연 ID</th><th class="num">대기 인원</th><th class="num">차단된 매크로</th><th class="num">남은 좌석</th></tr></thead>
-        <tbody id="rows"><tr><td colspan="4" class="hint">아직 지표가 없습니다</td></tr></tbody>
-      </table>
+  <div class="frame">
+    <div class="bar">
+      <b class="title">FairChain 관제 대시보드</b>
+      <span class="client">고객사 <b id="clientId"></b></span>
+      <span class="spacer"></span>
+      <span id="live" class="live">실시간</span>
+      <a class="plain" href="/inspector.html">점검 화면</a>
+      <button id="logout" class="plain">로그아웃</button>
     </div>
-  </main>
+
+    <p id="error" class="error"></p>
+
+    <!-- 지표 카드 4개 -->
+    <div class="stats">
+      <div class="stat blue">
+        <div class="label"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.600 2.900-6 6.500-6s6.500 2.400 6.500 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.200c2.700.3 4.500 2.300 4.500 5.300"/></svg>현재 대기 인원</div>
+        <div class="value"><b id="sWaiting">0</b><span>명</span></div>
+      </div>
+      <div class="stat green">
+        <div class="label"><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M3 20c0-3.600 3-6 7-6 1.300 0 2.500.3 3.500.7"/><path d="M15.500 17.500l2.200 2.200 4-4.200"/></svg>입장 완료</div>
+        <div class="value"><b id="sAdmitted">0</b><span>명</span></div>
+      </div>
+      <div class="stat red">
+        <div class="label"><svg viewBox="0 0 24 24"><path d="M12 3l7.500 3v5.500c0 4.600-3.200 8-7.500 9.500-4.300-1.500-7.500-4.900-7.500-9.500V6z"/></svg>매크로 차단</div>
+        <div class="value"><b id="sBlocked">0</b><span>건</span></div>
+      </div>
+      <div class="stat blue">
+        <div class="label"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.700 0l3.300-3.300a4 4 0 0 0-5.700-5.700L12 6.300"/><path d="M14 10a4 4 0 0 0-5.700 0L5 13.300A4 4 0 0 0 10.700 19L12 17.700"/></svg>블록 확정</div>
+        <div class="value"><b id="sConfirmed">0</b><span>개</span></div>
+        <div id="sPending" class="sub"></div>
+      </div>
+    </div>
+
+    <div class="row two">
+      <!-- 대기열 인원 추이 -->
+      <div class="panel">
+        <div class="head"><h2>대기열 인원 추이</h2><span class="hint">최근 1분 · 2초 단위</span></div>
+        <div class="chart">
+          <div id="peak" class="peak"></div>
+          <div id="bars" class="bars"></div>
+          <div class="axis"><span id="axisFrom"></span><span id="axisTo"></span></div>
+        </div>
+      </div>
+
+      <!-- 진행 로그 -->
+      <div class="panel">
+        <div class="head"><h2>진행 로그</h2><span class="hint">받은 요청 · 확정한 블록</span></div>
+        <ul id="log" class="log"><li class="empty">아직 들어온 요청이 없습니다</li></ul>
+      </div>
+    </div>
+
+    <div class="row two">
+      <!-- 공연별 현황 -->
+      <div class="panel">
+        <div class="head"><h2>공연별 현황</h2><span class="hint">공연 번호는 고객사가 등록한 번호</span></div>
+        <div id="events" class="events"><p class="hint">등록된 공연이 없습니다</p></div>
+      </div>
+
+      <!-- 블록체인 노드 -->
+      <div class="panel">
+        <div class="head"><h2>블록체인 노드</h2><span id="nodeNote" class="hint"></span></div>
+        <div id="nodes" class="nodelist"><p class="hint">노드 상태를 불러오는 중…</p></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="/js/console.js"></script>
-<script>
-  // SD-605: 로그인 → 대시보드 토큰으로 SSE 구독
-  const { $, bindLogin, session } = FairChainConsole;
-  let source = null;
-
-  function start(clientId, token) {
-    $('loginView').classList.add('hidden'); $('app').classList.remove('hidden');
-    $('clientId').textContent = clientId || '';
-    source = new EventSource('/dashboard/subscribe?token=' + encodeURIComponent(token));
-    source.addEventListener('metrics', (e) => {
-      const rows = JSON.parse(e.data).map((m) =>
-        `<tr><td>${m.eventId}</td><td class="num">${m.waitingCount}</td><td class="num">${m.blockedCount}</td><td class="num">${m.remainingSlots}</td></tr>`);
-      $('rows').innerHTML = rows.join('') || '<tr><td colspan="4" class="hint">등록된 공연이 없습니다</td></tr>';
-      $('error').textContent = '';
-    });
-    source.onerror = () => { $('error').textContent = '연결이 끊겼습니다. 토큰이 만료되었으면 다시 로그인하세요'; };
-  }
-
-  $('logout').addEventListener('click', () => {
-    session.clear(); source?.close();
-    $('app').classList.add('hidden'); $('loginView').classList.remove('hidden');
-  });
-
-  bindLogin($('loginForm'), start);
-</script>
+<script src="/js/dashboard.js"></script>
 </body>
 </html>
