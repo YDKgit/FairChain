@@ -30,6 +30,7 @@
     </nav>
     <span class="spacer"></span>
     <label><input type="checkbox" id="auto" checked> 2초마다 갱신</label>
+    <a class="plain" href="/node-join.html">노드 가입</a>
     <a class="plain" href="/dashboard.html">관제 대시보드</a>
     <button id="logout" class="plain">로그아웃</button>
   </header>
@@ -69,12 +70,22 @@
           <tbody id="admissionRows"></tbody>
         </table>
       </div>
+      <div class="card">
+        <h2>재배정 명단 (Redis ZSET · reallocation:{eventId})</h2>
+        <p class="hint">공연이 매진되는 순간 한 번 만든다. 위 입장 기록(admission)에서 <b>회원별 최신 행의 상태가 ADMITTED</b>(입장했지만 못 삼)인 것만 골라
+          <b>대기 순번이 작은 순</b>으로 넣는다. member = userId, score = 대기 순번. 고객사는 취소표가 나오면 이 순서대로 제안한다.</p>
+        <table>
+          <thead><tr><th>key</th><th>순서</th><th>member (userId)</th><th>score (대기 순번)</th><th>지금 입장 기록 상태</th></tr></thead>
+          <tbody id="reallocRows"></tbody>
+        </table>
+        <p id="reallocNote" class="hint"></p>
+      </div>
     </section>
 
     <section id="tab-nodes" class="hidden">
       <!-- 노드 추가 · 해지: 설정에 적은 FairChain 운영자에게만 보인다 (/dashboard/nodes/access) -->
       <div id="nodeManage" class="card hidden">
-        <h2>노드 추가 (리더 층)</h2>
+        <h2>노드 추가 (새 팀의 팀장)</h2>
         <form id="nodeAddForm" class="inline">
           <input id="nodeUrl" placeholder="새 노드의 주소 — 예: http://192.168.0.14:9001" autocomplete="off" required>
           <button id="nodeAddButton" class="primary">노드 추가</button>
@@ -119,6 +130,7 @@
     try {
       $('error').textContent = '';
       render[state.tab](await load(state.tab));
+      if (state.tab === 'db') renderRealloc(await load('reallocation'));
     } catch (e) { $('error').textContent = e.message; }
   }
 
@@ -128,6 +140,16 @@
       <td>${statusBadge(r.status)}</td><td>${r.durationMs}</td>
       <td class="body">${esc(r.requestBody)}</td><td class="body">${esc(r.responseBody)}</td></tr>`).join('')
       || emptyRow(8, '아직 받은 요청이 없습니다');
+  }
+
+  /** 매진된 공연의 재배정 명단 — Redis에 들어 있는 그대로 (공연마다 앞 100명) */
+  function renderRealloc(views) {
+    const rows = views.flatMap((v) => v.candidates.map((c) => `<tr>
+      <td class="mono">reallocation:${v.eventId}</td><td>${c.rank}</td><td>${c.userId}</td><td>${c.sequenceNumber ?? ''}</td>
+      <td class="${c.status === 'PURCHASED' ? 'ok' : ''}">${esc(c.status)}${c.status === 'PURCHASED' ? ' (취소표 구매)' : ''}</td></tr>`));
+    $('reallocRows').innerHTML = rows.join('') || emptyRow(5, views.length ? '매진된 공연은 있지만 명단이 비어 있습니다 (입장한 사람이 모두 삼)' : '매진된 공연이 없습니다');
+    const cut = views.filter((v) => v.total > v.candidates.length).map((v) => `공연 ${v.eventId}: 전체 ${v.total}명 중 앞 ${v.candidates.length}명`);
+    $('reallocNote').textContent = cut.length ? '많은 명단은 앞부분만 보여 줍니다 — ' + cut.join(', ') : '';
   }
 
   function renderDb(db) {
@@ -159,8 +181,9 @@
       const r = n.raft;
       // 리더 층 Raft 상태 (조회만): 역할 · 임기 · 빠진 이유 · 팀원 · 판정 기록 (#k → 제외 → 복귀)
       const raft = !r ? '' : `
-        <p>${esc(r.id)} (팀 ${esc(r.team)}) · <b>${esc(r.raftRole)}</b>${r.term ? ' · 임기 ' + r.term : ''}
-           · 리더 ${esc(r.leaderId || '-')}${r.halted ? ' · <span class="bad">기록 중단</span>' : ''}
+        <p>${esc(r.id)} · 팀 ${esc(r.team)}의 ${r.role === 'member' ? '팀원' : '팀장'}${r.raftRole === 'LEADER' ? ' · <b>진행 담당</b>' : r.raftRole === 'LEARNER' ? ' · 따라잡는 중' : r.raftRole === 'CANDIDATE' ? ' · 진행 담당 뽑는 중' : ''}
+           <span class="hint">(Raft ${esc(r.raftRole)})</span>${r.term ? ' · 임기 ' + r.term : ''}
+           · 진행 담당 ${esc(r.leaderId || '-')}${r.halted ? ' · <span class="bad">기록 중단</span>' : ''}
            ${r.outReason ? '<br><span class="bad">빠짐: ' + esc(r.outReason) + '</span>' : ''}
            ${(r.teamMembers || []).length ? '<br>팀원: ' + r.teamMembers.map((m) => esc(m.id) + ' ' + esc(m.state) + ' #' + m.lastBlockIndex).join(', ') : ''}
            ${(r.verdicts || []).length ? '<br>판정: ' + r.verdicts.map((v) => esc(v.suspectId || '') + ' #' + (v.blockIndex ?? '-') + ' '

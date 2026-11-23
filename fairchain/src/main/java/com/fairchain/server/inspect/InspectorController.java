@@ -31,6 +31,12 @@ public class InspectorController {
         return inspectorService.db(clientId(token));
     }
 
+    /** 매진된 공연의 취소표 재배정 명단 (관제 대시보드) */
+    @GetMapping("/reallocation")
+    public List<InspectorService.ReallocationView> reallocation(@RequestParam("token") String token) {
+        return inspectorService.reallocation(clientId(token));
+    }
+
     @GetMapping("/nodes")
     public List<InspectorService.NodeView> nodes(@RequestParam("token") String token) {
         clientId(token);

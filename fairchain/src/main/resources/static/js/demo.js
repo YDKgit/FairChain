@@ -308,7 +308,7 @@ async function refreshNodes() {
   // 가장 앞선 정상 노드의 블록 수보다 적으면 "따라잡는 중"
   const top = Math.max(0, ...list.filter(n => n.up && n.chainValid).map(n => n.height));
   // 리더 층 Raft 역할 (리더 · 팔로워 · learner). 예전 노드면 raftRole이 없다
-  const roleName = { LEADER: '👑 리더', FOLLOWER: '팔로워', LEARNER: 'learner (따라잡는 중)', CANDIDATE: '선거 중' };
+  const roleName = { LEADER: '👑 팀장 · 진행 담당', FOLLOWER: '팀장', LEARNER: '팀장 (따라잡는 중)', CANDIDATE: '팀장 (진행 담당 뽑는 중)' };
   $('nodes').innerHTML = list.map(n => {
     const name = '<b>노드 ' + n.node + (n.id ? ' · ' + n.id + ' (팀 ' + n.team + ')' : '') + '</b>';
     if (!n.up) return '<div class="node down">' + name + ' — 꺼짐<br>투표에 참여하지 않음 (켜지면 따라잡음)</div>';

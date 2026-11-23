@@ -19,8 +19,8 @@
     state.source.addEventListener('summary', (e) => onSummary(JSON.parse(e.data)));
     state.source.onopen = () => live(true);
     state.source.onerror = () => { live(false); $('error').textContent = '연결이 끊겼습니다. 토큰이 만료되었으면 다시 로그인하세요'; };
-    pollLog(); pollNodes();
-    state.timers = [setInterval(pollLog, 2000), setInterval(pollNodes, 3000)];
+    pollLog(); pollNodes(); pollRealloc();
+    state.timers = [setInterval(pollLog, 2000), setInterval(pollNodes, 3000), setInterval(pollRealloc, 3000)];
   }
 
   function stop() {
@@ -173,7 +173,10 @@
   }
 
   // ───── 노드 ─────
-  const ROLE = { LEADER: '<b>리더</b>', FOLLOWER: '팔로워', LEARNER: '따라잡는 중', CANDIDATE: '리더 선출 중', NONE: '참여 안 함' };
+  // 목록의 노드는 모두 팀장(자기 팀을 대표해 투표하는 노드)이고, 그중 한 대가 투표를 이끄는 진행 담당(Raft 리더)이다
+  const ROLE = { LEADER: '팀장 · <b>진행 담당</b>', FOLLOWER: '팀장', LEARNER: '팀장 (따라잡는 중)', CANDIDATE: '팀장 (진행 담당 뽑는 중)', NONE: '참여 안 함' };
+  const teamOf = (r) => (r?.team ? `팀 ${esc(r.team)} · ` : '') ;
+  const membersOf = (r) => (r?.role === 'leader-layer' ? ` · 팀원 ${(r.teamMembers || []).length}대` : '');
   async function pollNodes() {
     try {
       const nodes = await getWithToken('/dashboard/inspect/nodes', stop);
@@ -183,11 +186,37 @@
       $('nodes').innerHTML = nodes.map((n) => {
         const id = n.raft?.id || n.url.replace(/^https?:\/\//, '');
         if (!n.reachable) return `<div class="node down"><span class="dot"></span><span class="id">${esc(id)}</span><span class="role">응답 없음</span><span class="height"></span></div>`;
-        const state2 = n.raft?.halted ? '기록 중단' : n.raft?.outReason ? esc(n.raft.outReason) : ROLE[n.raft?.raftRole] || '';
+        const state2 = n.raft?.halted ? '기록 중단' : n.raft?.outReason ? esc(n.raft.outReason) : teamOf(n.raft) + (ROLE[n.raft?.raftRole] || '') + membersOf(n.raft);
         return `<div class="node ${n.status.chainValid ? '' : 'down'}"><span class="dot"></span><span class="id">${esc(id)}</span>
           <span class="role">${state2}${n.status.chainValid ? '' : ' · 체인 손상'}</span><span class="height">블록 ${num(n.status.height)}개</span></div>`;
       }).join('') || '<p class="hint">등록된 노드가 없습니다</p>';
     } catch (e) { $('nodeNote').textContent = '노드 상태를 읽지 못했습니다'; }
+  }
+
+  // ───── 취소표 재배정 명단 ─────
+  // 매진 순간에 만든 명단(취소표를 제안받을 순서)과, 그 사람이 그 뒤 취소표를 샀는지
+  async function pollRealloc() {
+    try {
+      const views = await getWithToken('/dashboard/inspect/reallocation', stop);
+      if (!views.length) { $('realloc').innerHTML = '<p class="hint">매진된 공연이 없습니다</p>'; return; }
+      $('realloc').innerHTML = views.map((v) => {
+        const next = v.candidates.find((c) => c.status !== 'PURCHASED');
+        const rows = v.candidates.map((c) => {
+          const bought = c.status === 'PURCHASED', isNext = next && c.rank === next.rank;
+          return `<tr class="${bought ? 'bought' : isNext ? 'next' : ''}">
+            <td>${num(c.rank)}번째</td><td>회원 #${esc(c.userId)}</td><td>${c.sequenceNumber == null ? '-' : num(c.sequenceNumber) + '번'}</td>
+            <td>${bought ? '취소표 구매' : isNext ? '다음 차례' : '대기'}</td></tr>`;
+        }).join('');
+        const more = v.total > v.candidates.length ? `<p class="hint">앞 ${num(v.candidates.length)}명만 보여 줍니다 (전체 ${num(v.total)}명)</p>` : '';
+        return `<div class="rl-event">
+          <div class="rl-head"><b>공연 #${esc(v.eventId)}</b>
+            <span>매진 ${esc(String(v.soldOutAt || '').slice(11, 19))}</span><span>명단 ${num(v.total)}명</span>
+            <span>${v.purchased ? `취소표 구매 ${num(v.purchased)}명` : '아직 취소표를 산 사람 없음'}</span></div>
+          ${v.total ? `<div class="rl-table"><table><thead><tr><th>취소표 차례</th><th>회원</th><th>대기열 진입 순번</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div>${more}`
+            : '<p class="hint">명단이 비어 있습니다 — 매진될 때까지 입장한 사람이 모두 샀습니다</p>'}
+        </div>`;
+      }).join('');
+    } catch (e) { /* 다음 주기에 다시 */ }
   }
 
   bindLogin($('loginForm'), start);

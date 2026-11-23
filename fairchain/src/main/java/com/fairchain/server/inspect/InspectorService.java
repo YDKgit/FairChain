@@ -1,5 +1,10 @@
 package com.fairchain.server.inspect;
 
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Comparator;
+import com.fairchain.server.reservation.entity.Admission;
+import com.fairchain.server.reservation.repository.ReallocationRepository;
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
 import com.fairchain.nodeapi.dto.NodeStatusDto;
@@ -26,6 +31,7 @@ public class InspectorService {
 
     private static final Pageable RECENT_ROWS = PageRequest.of(0, 300);
     private static final int BLOCKS = 30;
+    private static final int CANDIDATE_ROWS = 100;
 
     private final RequestLogStore requestLogStore;
     private final EventRepository eventRepository;
@@ -33,16 +39,19 @@ public class InspectorService {
     private final AdmissionRepository admissionRepository;
     private final BlockQueueRepository blockQueueRepository;
     private final NodeLedgerAccess nodeLedgerAccess;
+    private final ReallocationRepository reallocationRepository;
 
     public InspectorService(RequestLogStore requestLogStore, EventRepository eventRepository,
                             AnchorRecordRepository anchorRecordRepository, AdmissionRepository admissionRepository,
-                            BlockQueueRepository blockQueueRepository, NodeLedgerAccess nodeLedgerAccess) {
+                            BlockQueueRepository blockQueueRepository, NodeLedgerAccess nodeLedgerAccess,
+                            ReallocationRepository reallocationRepository) {
         this.requestLogStore = requestLogStore;
         this.eventRepository = eventRepository;
         this.anchorRecordRepository = anchorRecordRepository;
         this.admissionRepository = admissionRepository;
         this.blockQueueRepository = blockQueueRepository;
         this.nodeLedgerAccess = nodeLedgerAccess;
+        this.reallocationRepository = reallocationRepository;
     }
 
     public record EventRow(Long eventId, Long totalSeats, Long remainingSeats, LocalDateTime soldOutAt) {}
@@ -62,6 +71,62 @@ public class InspectorService {
      */
     public record NodeView(String id, String url, boolean reachable, NodeLedgerStatusDto status, List<BlockDto> blocks,
                            String error, NodeStatusDto raft) {}
+
+    /**
+     * 재배정 명단의 한 줄.
+     *
+     * @param rank           명단 순번 = 취소표를 제안받을 차례
+     * @param sequenceNumber 대기열에 진입한 순번 (명단은 이 값이 작은 순)
+     * @param status         지금 상태 — ADMITTED: 아직 못 삼(차례를 기다림), PURCHASED: 취소표를 삼
+     */
+    public record CandidateRow(int rank, Long userId, Long sequenceNumber, String status) {}
+
+    /**
+     * 공연 하나의 재배정 명단 (매진된 공연만).
+     *
+     * @param total      명단 전체 인원
+     * @param purchased  보여 주는 줄 가운데 취소표를 산 사람 수
+     * @param candidates 앞에서부터 CANDIDATE_ROWS명
+     */
+    public record ReallocationView(Long eventId, LocalDateTime soldOutAt, int total, int purchased, List<CandidateRow> candidates) {}
+
+    /**
+     * 이 고객사의 매진된 공연마다, 매진 순간에 만든 재배정 명단과 그 사람들의 지금 상태.
+     * 명단은 "대기열을 통과하고도 못 산 사람"을 진입 순번순으로 세운 것이고, 고객사는 취소표가 나오면 이 순서대로 제안한다
+     */
+    @Transactional(readOnly = true)
+    public List<ReallocationView> reallocation(String clientId) {
+        List<ReallocationView> views = new ArrayList<>();
+        for (Event event : eventRepository.findByClientId(clientId)) {
+            if (!event.isSoldOut()) {
+                continue;
+            }
+            Long eventId = event.getEventId();
+            List<Long> userIds = reallocationRepository.findCandidates(eventId);
+            List<Long> sequences = reallocationRepository.findSequenceNumbers(eventId);
+            int shown = Math.min(CANDIDATE_ROWS, userIds.size());
+            List<Long> head = userIds.subList(0, shown);
+            Map<Long, Admission> latest = new HashMap<>();          // 회원별 최신 입장 기록
+            if (!head.isEmpty()) {
+                for (Admission a : admissionRepository.findByEventIdAndUserIdIn(eventId, head)) {
+                    latest.merge(a.getUserId(), a, (x, y) -> x.getId() > y.getId() ? x : y);
+                }
+            }
+            List<CandidateRow> rows = new ArrayList<>();
+            int purchased = 0;
+            for (int i = 0; i < shown; i++) {
+                Admission a = latest.get(head.get(i));
+                String status = a == null ? "ADMITTED" : String.valueOf(a.getStatus());
+                if ("PURCHASED".equals(status)) {
+                    purchased++;
+                }
+                rows.add(new CandidateRow(i + 1, head.get(i), i < sequences.size() ? sequences.get(i) : null, status));
+            }
+            views.add(new ReallocationView(eventId, event.getSoldOutAt(), userIds.size(), purchased, rows));
+        }
+        views.sort(Comparator.comparing(ReallocationView::soldOutAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return views;
+    }
 
     /** 이 고객사의 요청 + 인증 전에 거절된 요청 (최신순) */
     public List<RequestLogEntry> requests(String clientId) {

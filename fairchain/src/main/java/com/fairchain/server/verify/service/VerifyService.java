@@ -43,7 +43,7 @@ public class VerifyService {
     }
 
     /**
-     * SD-401-02: 들고 온 티켓의 지문을 노드 3대 최신 지문(2/3)과 대조.
+     * SD-401-02: 들고 온 티켓의 지문을 노드들의 최신 지문(과반)과 대조.
      * 노드에 아직 그 버전이 없으면(블록 확정 전) FairChain 사본으로 확인.
      */
     @Transactional(readOnly = true)

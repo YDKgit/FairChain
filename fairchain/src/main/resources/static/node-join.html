@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FairChain 노드 가입</title>
+<link rel="stylesheet" href="/css/console.css">
+<style>
+  .join { max-width: 640px; margin: 48px auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .join h2 { margin-top: 0; }
+  .join label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .join input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; box-sizing: border-box; }
+  .join .primary { margin-top: 16px; }
+  .join .primary:disabled { opacity: .6; cursor: default; }
+  .join .result { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 14px; display: none; }
+  .join .result.ok { display: block; background: #e8f6ee; color: #0b6b3a; }
+  .join .result.no { display: block; background: #fdecea; color: #a8261f; }
+  .join ol { padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .join table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .join th, .join td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); }
+  .join th { color: var(--muted); font-weight: 600; border-top: 0; }
+  .join .links { margin-top: 18px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<section class="join">
+  <h2>FairChain 노드 가입</h2>
+  <p class="hint">고객사가 자기 API Key로 <b>새 팀의 팀장 노드</b>를 등록합니다. 팀이 하나 늘고, 그 팀의 팀원 노드는 따로 등록하지 않아도 팀장에 스스로 붙습니다. 서비스를 멈추지 않고 붙습니다.</p>
+  <ol>
+    <li>새 서버에서 노드 프로그램을 켭니다. (<code>python scripts/raft_nodes.py new-node …</code>)</li>
+    <li>아래에 고객사 API Key와 그 노드의 주소를 적고 추가를 누릅니다.</li>
+    <li>진행 담당 노드가 그 노드를 직접 확인합니다. 노드 공유 비밀값과 자기 개인키를 가진 노드만 통과합니다.</li>
+    <li>통과하면 블록을 따라잡은 뒤 투표에 참여합니다. 몇 초 걸릴 수 있습니다.</li>
+  </ol>
+
+  <form id="joinForm">
+    <label for="apiKey">고객사 API Key</label>
+    <input id="apiKey" type="password" autocomplete="off" placeholder="X-API-KEY로 쓰는 값" required>
+    <label for="nodeUrl">노드 주소</label>
+    <input id="nodeUrl" placeholder="http://192.168.0.14:9001" required>
+    <button id="joinBtn" class="primary">노드 추가</button>
+  </form>
+  <div id="result" class="result"></div>
+
+  <h3>지금 참여 중인 팀장 노드</h3>
+  <p id="nodesNote" class="hint">API Key를 넣으면 보입니다.</p>
+  <table id="nodesTable" class="hidden"><thead><tr><th>ID</th><th>팀</th><th>주소</th><th>역할</th><th>팀원</th><th>블록</th></tr></thead><tbody id="nodesBody"></tbody></table>
+
+  <p class="links"><a href="/dashboard.html">관제 대시보드</a> · <a href="/inspector.html">점검 화면</a> (노드 해지는 점검 화면에서 FairChain 운영자가 합니다)</p>
+</section>
+
+<script src="/js/console.js"></script>
+<script>
+(() => {
+  const { $, esc } = FairChainConsole;
+  const ROLE = { LEADER: '팀장 · 진행 담당', FOLLOWER: '팀장', LEARNER: '팀장 (따라잡는 중)', CANDIDATE: '팀장 (진행 담당 뽑는 중)', NONE: '참여 안 함' };
+  // API Key는 이 탭에서만 기억한다 (탭을 닫으면 사라진다)
+  $('apiKey').value = sessionStorage.getItem('fcJoinKey') || '';
+
+  async function call(method, body) {
+    const res = await fetch('/api/nodes', {
+      method, headers: { 'Content-Type': 'application/json', 'X-API-KEY': $('apiKey').value.trim() },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('API Key가 없거나 틀렸습니다');
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function loadNodes() {
+    if (!$('apiKey').value.trim()) return;
+    try {
+      const nodes = await call('GET');
+      $('nodesBody').innerHTML = nodes.map((n) => `<tr><td><b>${esc(n.id || '-')}</b></td><td>${esc(n.team || '')}</td><td>${esc(n.url)}</td>
+        <td>${n.reachable ? esc(ROLE[n.role] || n.role || '') : '응답 없음'}</td><td>${n.teamMembers == null ? '' : n.teamMembers + '대'}</td><td>${n.height == null ? '' : Number(n.height).toLocaleString('ko-KR')}</td></tr>`).join('');
+      $('nodesTable').classList.remove('hidden');
+      $('nodesNote').textContent = `${nodes.length}대`;
+    } catch (e) { $('nodesTable').classList.add('hidden'); $('nodesNote').textContent = e.message; }
+  }
+
+  $('joinForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = $('result'), btn = $('joinBtn');
+    sessionStorage.setItem('fcJoinKey', $('apiKey').value.trim());
+    btn.disabled = true; btn.textContent = '확인하는 중… (따라잡기를 기다립니다)';
+    box.className = 'result';
+    try {
+      const r = await call('POST', { url: $('nodeUrl').value.trim() });
+      box.className = 'result ' + (r.accepted ? 'ok' : 'no');
+      box.textContent = (r.accepted ? '추가됨 — ' : '거부됨 — ') + (r.message || '');
+      if (r.accepted) $('nodeUrl').value = '';
+    } catch (err) { box.className = 'result no'; box.textContent = err.message; }
+    finally { btn.disabled = false; btn.textContent = '노드 추가'; loadNodes(); }
+  });
+  $('apiKey').addEventListener('change', loadNodes);
+  loadNodes();
+  setInterval(loadNodes, 5000);
+})();
+</script>
+</body>
+</html>

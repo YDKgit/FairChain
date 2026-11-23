@@ -16,6 +16,20 @@ class MajorityTest {
         assertEquals(3, Majority.quorum(4));
     }
 
+    /** 기록(Raft)과 같은 기준 — 노드가 늘어도 "기록은 되는데 조회는 안 되는" 구간이 없어야 한다 */
+    @Test
+    void 조회_기준은_과반() {
+        assertEquals(3, Majority.quorum(5));
+        assertEquals(4, Majority.quorum(7));
+        assertEquals(5, Majority.quorum(9));
+    }
+
+    @Test
+    void 아홉_대_중_네_대가_꺼져도_남은_다섯_대가_같으면_채택() {
+        assertEquals(Optional.of("A"), Majority.pick(Arrays.asList("A", "A", "A", "A", "A", null, null, null, null), 9));
+        assertEquals(Optional.empty(), Majority.pick(Arrays.asList("A", "A", "A", "A", null, null, null, null, null), 9));
+    }
+
     @Test
     void 두_대가_같으면_채택() {
         assertEquals(Optional.of("A"), Majority.pick(List.of("A", "B", "A"), 3));
