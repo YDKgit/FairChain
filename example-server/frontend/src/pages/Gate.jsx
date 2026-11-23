@@ -20,12 +20,23 @@ function signal(ok) {
   } catch { /* 소리를 못 내도 화면은 보인다 */ }
 }
 
+/** 스캔 기록은 이 브라우저에 남긴다 — 다른 화면에 다녀오거나 새로 고쳐도 보인다 */
+const HISTORY_KEY = 'fairticket.gateHistory';
+const HISTORY_MAX = 200;
+function loadHistory() {
+  try { const v = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+
 /** 게이트 스태프 — QR 토큰을 찍으면 FairChain 기록과 대조해 입장 허용 · 거절 */
 export default function Gate() {
   const [staff, setStaff] = useState(undefined);   // undefined: 확인 중, null: 로그인 필요
   const [token, setToken] = useState('');
   const [result, setResult] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(loadHistory);
+  const [filter, setFilter] = useState('');        // '' = 전체, 아니면 공연 이름
+  useEffect(() => { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch { /* 저장 못 해도 화면에는 보인다 */ } }, [history]);
+  const concerts = [...new Set(history.map((h) => h.concertTitle).filter(Boolean))];
+  const shown = filter ? history.filter((h) => h.concertTitle === filter) : history;
 
   const check = useCallback(() => get('/api/staff/me').then(setStaff).catch(() => setStaff(null)), []);
   useEffect(() => { check(); }, [check]);
@@ -48,7 +59,7 @@ export default function Gate() {
     try { r = await post('/api/staff/scan', { qrToken }); }
     catch (err) { r = { success: false, reason: err.message }; }
     setResult(r);
-    setHistory((h) => [{ ...r, at: new Date().toISOString(), token: qrToken.slice(0, 8) }, ...h].slice(0, 10));
+    setHistory((h) => [{ ...r, at: new Date().toISOString(), token: qrToken.slice(0, 8) }, ...h].slice(0, HISTORY_MAX));
     setToken('');
     if (fromCamera) {
       signal(r.success);
@@ -164,12 +175,27 @@ export default function Gate() {
         )}
         {history.length > 0 && (
           <div className="card">
-            <h3>최근 스캔</h3>
-            <table className="table small"><thead><tr><th>시각</th><th>토큰</th><th>결과</th><th>내용</th></tr></thead>
-              <tbody>{history.map((h, i) => (
-                <tr key={i}><td>{when(h.at)}</td><td className="mono">{h.token}…</td>
+            <div className="row gap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>스캔 기록</h3>
+              <button type="button" className="link" onClick={() => { if (window.confirm('이 기기에 남은 스캔 기록을 지울까요?')) { setHistory([]); setFilter(''); } }}>기록 지우기</button>
+            </div>
+            <div className="chips" style={{ margin: '12px 0' }}>
+              <button type="button" className={`chip ${filter === '' ? 'on' : ''}`} onClick={() => setFilter('')}>전체 {history.length}</button>
+              {concerts.map((c) => (
+                <button type="button" key={c} className={`chip ${filter === c ? 'on' : ''}`} onClick={() => setFilter(c)}>
+                  {c} {history.filter((h) => h.concertTitle === c).length}
+                </button>
+              ))}
+            </div>
+            <p className="muted small">
+              허용 {shown.filter((h) => h.success).length}건 · 거절 {shown.filter((h) => !h.success).length}건
+              {filter ? '' : ' — 읽을 수 없는 QR은 어느 공연인지 알 수 없어 전체에만 나옵니다'}
+            </p>
+            <table className="table small"><thead><tr><th>시각</th><th>공연</th><th>좌석</th><th>결과</th><th>내용</th></tr></thead>
+              <tbody>{shown.map((h, i) => (
+                <tr key={i}><td>{when(h.at)}</td><td>{h.concertTitle || '-'}</td><td>{h.seatNumber || '-'}</td>
                   <td><span className={`badge ${h.success ? 'ok' : 'bad'}`}>{h.success ? '허용' : '거절'}</span></td>
-                  <td>{h.success ? `${h.concertTitle} · ${h.seatNumber}` : h.reason}</td></tr>
+                  <td>{h.success ? '입장' : h.reason}</td></tr>
               ))}</tbody></table>
           </div>
         )}

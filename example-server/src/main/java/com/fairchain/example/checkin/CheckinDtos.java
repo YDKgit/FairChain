@@ -17,5 +17,10 @@ public final class CheckinDtos {
         static CheckinResultDto deny(String reason) {
             return new CheckinResultDto(false, reason, null, null);
         }
+
+        /** 어느 공연 · 좌석의 티켓인지는 아는 거절 — 게이트 화면이 공연별로 모아 보여 준다 */
+        static CheckinResultDto deny(String reason, String concertTitle, String seatNumber) {
+            return new CheckinResultDto(false, reason, concertTitle, seatNumber);
+        }
     }
 }

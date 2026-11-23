@@ -72,26 +72,28 @@ public class CheckinService {
         if (ticket == null) {
             return CheckinResultDto.deny("유효하지 않은 QR");
         }
+        Concert concert = concertRepository.findById(ticket.getConcertId()).orElseThrow();
+        String title = concert.getTitle();
+        String seatNumber = seatRepository.findById(ticket.getSeatId()).map(Seat::getSeatNumber).orElse(null);
         if (ticket.getStatus() == TicketStatus.CANCELLED) {
-            return CheckinResultDto.deny("취소된 티켓");
+            return CheckinResultDto.deny("취소된 티켓", title, seatNumber);
         }
         if (ticket.getStatus() == TicketStatus.CHECKED_IN) {
-            return CheckinResultDto.deny("이미 입장한 티켓");
+            return CheckinResultDto.deny("이미 입장한 티켓", title, seatNumber);
         }
-        Concert concert = concertRepository.findById(ticket.getConcertId()).orElseThrow();
         if (!concert.isEntryTime(LocalDateTime.now())) {
-            return CheckinResultDto.deny("입장 가능 시간이 아님 (공연 시작 3시간 전부터)");
+            return CheckinResultDto.deny("입장 가능 시간이 아님 (공연 시작 3시간 전부터)", title, seatNumber);
         }
         VerifyResultDto verified = checkinAccess.verify(ticket);
         if (verified.status() != VerifyStatus.VERIFIED) {
             return CheckinResultDto.deny("위조 의심으로 입장 거부"
-                    + (verified.reason() == null ? "" : " — " + verified.reason()));
+                    + (verified.reason() == null ? "" : " — " + verified.reason()), title, seatNumber);
         }
         CheckinResultDto result = transactionTemplate.execute(status -> {
             Seat seat = seatRepository.findByIdForUpdate(ticket.getSeatId()).orElseThrow();
             Ticket current = ticketRepository.findById(ticket.getTicketId()).orElseThrow();
             if (current.getStatus() != TicketStatus.ACTIVE) {     // 같은 QR을 동시에 두 번 찍은 경우
-                return CheckinResultDto.deny("이미 입장한 티켓");
+                return CheckinResultDto.deny("이미 입장한 티켓", title, seatNumber);
             }
             long version = seat.nextVersion();
             current.checkIn(version);
