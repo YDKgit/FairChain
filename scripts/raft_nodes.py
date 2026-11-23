@@ -14,6 +14,10 @@ PC 1대에 시연 구성 전체(프로세스 9개)를 띄우거나, PC 1대 = �
   python scripts/raft_nodes.py tamper ID --block K [--rewrite] 꺼서 H2를 고치고 다시 켬 (--rewrite: 뒤 해시까지 다시 계산)
   python scripts/raft_nodes.py report ID                      "이 노드가 다르다" 신고 (FairChain이 하는 신고와 같음)
   python scripts/raft_nodes.py join D1 --team D --port 9004   새 팀 D의 노드를 켜고 노드 관리 API로 가입 (learner → 승격)
+  python scripts/raft_nodes.py new-node D1 --team D --host 192.168.0.14 --leaders A1=http://192.168.0.11:9001,B1=...,C1=...
+                                                             다른 PC에서: 새 팀의 노드 프로세스만 켠다 (--members N으로 팀원도).
+                                                             가입은 FairChain 점검 화면의 "노드 추가"에 주소를 적거나 add로
+  python scripts/raft_nodes.py add http://192.168.0.14:9001   주소만으로 가입 요청 (리더가 그 노드를 확인 → learner → 투표 멤버)
   python scripts/raft_nodes.py leave D1                       해지 (팀 3개 미만이 되면 거부)
   python scripts/raft_nodes.py resume                         기록 중단 상태를 관리자가 풀기
   python scripts/raft_nodes.py scenario                       시연 순서 전체를 자동으로 돌려 확인 (빈 장부에서 시작)
@@ -113,13 +117,16 @@ def build_layout(a):
         for k, port in enumerate(member_ports(9011, a.members)):
             nodes.append({'id': f'{a.team}{k + 2}', 'port': port, 'role': 'member', 'url': f'http://{a.host}:{port}'})
     else:
-        leaders = 'A1=http://localhost:9001,B1=http://localhost:9002,C1=http://localhost:9003'
+        # --host에 이 PC의 IP를 주면 노드가 그 주소로 서로를 부른다 — 나중에 다른 PC의 노드를 붙이려면 필요하다
+        # (localhost로 시작한 그룹에는 다른 PC의 노드가 접속할 수 없다)
+        host = a.host or 'localhost'
+        leaders = ','.join(f'{team}1=http://{host}:{9001 + t}' for t, team in enumerate('ABC'))
         nodes = []
         for t, team in enumerate('ABC'):
-            nodes.append({'id': f'{team}1', 'port': 9001 + t, 'role': 'leader-layer', 'url': f'http://localhost:{9001 + t}'})
+            nodes.append({'id': f'{team}1', 'port': 9001 + t, 'role': 'leader-layer', 'url': f'http://{host}:{9001 + t}'})
         for t, team in enumerate('ABC'):
             for k, port in enumerate(member_ports(9011 + 10 * t, a.members)):
-                nodes.append({'id': f'{team}{k + 2}', 'port': port, 'role': 'member', 'url': f'http://localhost:{port}'})
+                nodes.append({'id': f'{team}{k + 2}', 'port': port, 'role': 'member', 'url': f'http://{host}:{port}'})
     return {'leaders': leaders, 'secret': secret, 'patrol': a.patrol, 'java': java_exe(a.java), 'nodes': nodes,
             'heartbeat_timeout': getattr(a, 'heartbeat_timeout', None)}
 
@@ -154,6 +161,8 @@ def launch(n, layout):
         env['NODE_RAFT_HEARTBEAT_TIMEOUT_SECS'] = str(layout['heartbeat_timeout'])
     if n.get('team'):
         env['NODE_TEAM'] = n['team']
+    if n.get('team_leader'):
+        env['NODE_TEAM_LEADER'] = n['team_leader']     # 처음 명단에 없는(나중에 가입하는) 팀의 팀원
     log = open(DATA / f"{n['id']}.log", 'ab')
     kwargs = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS} if os.name == 'nt' \
         else {'start_new_session': True}
@@ -490,12 +499,70 @@ def cmd_report(a):
     print('신고를 받아 준 노드가 없다')
 
 
+def layout_host(layout):
+    """이 구성의 노드들이 쓰는 호스트 (localhost 또는 start --host로 준 IP)"""
+    first = layout['nodes'][0]['url'] if layout['nodes'] else layout['leaders'].split(',')[0].split('=', 1)[1]
+    return first.split('://', 1)[1].rsplit(':', 1)[0]
+
+
+def cmd_new_node(a):
+    """새 팀의 노드 프로세스만 켠다 (다른 PC에서도). 리더 층 가입은 FairChain 점검 화면의 "노드 추가"나 add 명령으로 한다"""
+    if LAYOUT.exists():
+        layout = load_layout()
+        if a.leaders and a.leaders != layout['leaders']:
+            sys.exit('이 PC에는 다른 --leaders로 만든 구성이 있다. 그 구성을 쓰려면 --leaders를 빼고, 새로 하려면 data/raft를 지운다')
+    else:
+        if not a.leaders:
+            sys.exit('이 PC에 구성이 없다 — 붙을 그룹의 처음 멤버를 알려 준다: --leaders A1=http://ip:9001,B1=...,C1=...')
+        layout = {'leaders': a.leaders, 'secret': a.secret, 'patrol': False, 'java': java_exe(a.java), 'nodes': [],
+                  'heartbeat_timeout': None}
+        DATA.mkdir(parents=True, exist_ok=True)
+        shutil.copy(node_jar(), DATA / 'node.jar')
+    host = a.host or (layout_host(layout) if layout['nodes'] else 'localhost')
+    if host == 'localhost' and 'localhost' not in layout['leaders']:
+        sys.exit('다른 PC의 그룹에 붙으려면 --host에 이 PC의 IP를 준다 (다른 노드가 이 노드에 접속할 주소)')
+    added = []
+    if not any(n['id'] == a.id for n in layout['nodes']):
+        added.append({'id': a.id, 'port': a.port, 'role': 'leader-layer', 'url': f'http://{host}:{a.port}', 'team': a.team})
+    first = 9011 + 10 * (a.port - 9001) if 9001 <= a.port <= 9008 else a.port + 10
+    have = sum(1 for n in layout['nodes'] if n.get('team_leader') == a.id)
+    for k, port in enumerate(member_ports(first, max(0, a.members - have))):
+        added.append({'id': f'{a.team}{have + k + 2}', 'port': port, 'role': 'member', 'url': f'http://{host}:{port}',
+                      'team': a.team, 'team_leader': a.id})
+    layout['nodes'].extend(added)
+    save_layout(layout)
+    mine = [n for n in layout['nodes'] if n['id'] == a.id or n.get('team_leader') == a.id]
+    for n in mine:
+        if not is_up(n, layout):
+            launch(n, layout)
+    wait_up(mine, layout)
+    url = node_of(layout, a.id)['url']
+    print(f"{a.id} (팀 {a.team}) 켜짐: {url}" + (f" · 팀원 {len(mine) - 1}대" if len(mine) > 1 else ''))
+    print('아직 리더 층 멤버가 아니다 (learner로 기다림). 가입시키려면:')
+    print(f"  FairChain 점검 화면 → 블록체인 노드 → 노드 추가에  {url}")
+    print(f"  또는: python scripts/raft_nodes.py add {url}   (기존 그룹이 있는 PC에서)")
+
+
+def cmd_add(a):
+    """주소만으로 가입 요청 — FairChain 점검 화면의 "노드 추가"와 같다. 리더가 그 주소의 노드를 확인한 뒤 learner → 투표 멤버"""
+    layout = load_layout()
+    for leader in leader_layer(layout):
+        if leader['url'].rstrip('/') == a.url.rstrip('/'):
+            continue
+        code, r = call('POST', leader['url'] + '/node/admin/members', {'url': a.url}, layout['secret'], timeout=100)
+        if code == 200 and r:
+            print(('가입: ' if r['accepted'] else '거부: ') + r['message'])
+            return 0 if r['accepted'] else 1
+    print('가입 요청을 받아 준 노드가 없다')
+    return 1
+
+
 def cmd_join(a):
     layout = load_layout()
     if any(n['id'] == a.id for n in layout['nodes']):
         n = node_of(layout, a.id)
     else:
-        host = a.host or 'localhost'
+        host = a.host or layout_host(layout)
         n = {'id': a.id, 'port': a.port, 'role': 'leader-layer', 'url': f'http://{host}:{a.port}', 'team': a.team}
         layout['nodes'].append(n)
         save_layout(layout)
@@ -506,8 +573,9 @@ def cmd_join(a):
     for leader in leader_layer(layout):
         if leader['id'] == a.id:
             continue
+        # 주소만 있으면 되지만, ID · 팀도 같이 보내 그 주소의 노드가 맞는지 리더가 한 번 더 보게 한다
         code, r = call('POST', leader['url'] + '/node/admin/members',
-                       {'id': a.id, 'team': a.team, 'url': n['url']}, layout['secret'], timeout=90)
+                       {'id': a.id, 'team': a.team, 'url': n['url']}, layout['secret'], timeout=100)
         if code == 200 and r:
             print(('가입: ' if r['accepted'] else '거부: ') + r['message'])
             return
@@ -643,7 +711,8 @@ def main():
     p.add_argument('--fresh', action='store_true', help='장부 · Raft 상태 · 키를 지우고 새로 시작')
     p.add_argument('--patrol', action='store_true', help='순회 검사 켜기 (시연 설정)')
     p.add_argument('--team', help='PC 1대 = 팀 1개 모드: 이 PC의 팀 ID (A · B · C)')
-    p.add_argument('--host', default='localhost', help='이 PC의 IP (팀 모드)')
+    p.add_argument('--host', default='localhost',
+                   help='이 PC의 IP — 노드가 서로를 부르는 주소. 다른 PC의 노드를 붙일 거면 PC 1대 모드에서도 준다')
     p.add_argument('--leaders', help='리더 층 처음 멤버: A1=http://ip:9001,B1=...,C1=... (팀 모드)')
     p.add_argument('--members', type=int, default=2, help='팀마다 팀원 수')
     p.add_argument('--secret', default=SECRET_DEFAULT)
@@ -666,6 +735,17 @@ def main():
     q.add_argument('--team', required=True)
     q.add_argument('--port', type=int, default=9004)
     q.add_argument('--host')
+    q = sub.add_parser('new-node', help='새 팀의 노드 프로세스만 켠다 (다른 PC에서도) — 가입은 FairChain 점검 화면이나 add')
+    q.add_argument('id')
+    q.add_argument('--team', required=True)
+    q.add_argument('--port', type=int, default=9001)
+    q.add_argument('--host', help='다른 노드가 이 노드에 접속할 이 PC의 IP')
+    q.add_argument('--leaders', help='붙을 그룹의 처음 멤버: A1=http://ip:9001,B1=...,C1=... (이 PC에 구성이 없을 때)')
+    q.add_argument('--members', type=int, default=0, help='같이 켤 팀원 수')
+    q.add_argument('--secret', default=SECRET_DEFAULT, help='그룹의 노드 공유 비밀값 (이 PC에 구성이 없을 때)')
+    q.add_argument('--java')
+    q = sub.add_parser('add', help='주소만으로 가입 요청 (FairChain 점검 화면의 "노드 추가"와 같다)')
+    q.add_argument('url')
     q = sub.add_parser('leave')
     q.add_argument('id')
     q.add_argument('--keep-running', action='store_true')
@@ -685,7 +765,7 @@ def main():
     handler = {'start': cmd_start, 'stop': cmd_stop, 'up': cmd_up, 'status': cmd_status, 'write': cmd_write,
                'kill-leader': cmd_kill_leader, 'tamper': cmd_tamper, 'report': cmd_report, 'join': cmd_join,
                'leave': cmd_leave, 'resume': cmd_resume, 'scenario': cmd_scenario, 'failover': cmd_failover,
-               'watch-failover': cmd_watch_failover}[a.cmd]
+               'watch-failover': cmd_watch_failover, 'new-node': cmd_new_node, 'add': cmd_add}[a.cmd]
     sys.exit(handler(a) or 0)
 
 

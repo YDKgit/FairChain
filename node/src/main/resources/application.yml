@@ -12,12 +12,15 @@ node:
   id: ${NODE_ID:A1}                 # 노드 ID (영문 · 숫자 · '-' · '_'). 리더 층 Raft 멤버 이름
   team: ${NODE_TEAM:}               # 팀(기관) ID. 비우면 ID 끝 숫자를 뗀 값 (A1 → A)
   role: ${NODE_ROLE:leader-layer}   # leader-layer: 리더 층 Raft 멤버 · member: 투표하지 않는 팀원 사본
-  url: ${NODE_URL:}                 # 이 노드에 접속할 주소. 리더 층은 node.members 값, 팀원은 비우면 http://localhost:포트
-  team-leader: ${NODE_TEAM_LEADER:} # 팀원만: 팀 리더 ID. 비우면 node.members에서 같은 팀인 노드
+  # 이 노드에 접속할 주소. 리더 층은 node.members 값, 그 밖에는 비우면 http://localhost:포트.
+  # 나중에 가입하는 노드는 꼭 적는다 — 운영자가 "노드 추가"에 적는 주소와 같아야 가입된다 (가입 전 확인)
+  url: ${NODE_URL:}
+  team-leader: ${NODE_TEAM_LEADER:} # 팀원만: 팀 리더 ID. 비우면 node.members에서 같은 팀인 노드 (나중에 가입한 팀이면 꼭 적는다)
   member-sync-ms: ${NODE_MEMBER_SYNC_MS:1000}   # 팀원: 팀 리더에 등록 · 빠진 블록 받기 주기
   # 리더 층 Raft 그룹을 처음 만들 때의 멤버 (팀 리더 노드). ID=주소, 팀을 따로 적으려면 ID@팀=주소
   members: ${NODE_MEMBERS:A1=http://localhost:9001,B1=http://localhost:9002,C1=http://localhost:9003}
-  secret: ${NODE_SECRET:local-demo-change-me}   # FairChain fairchain.nodes.api-key와 같은 값
+  # FairChain fairchain.nodes.api-key와 같은 값. 새 노드는 이 값을 알아야 가입된다 — 실제로 쓸 때는 길고 무작위인 값으로
+  secret: ${NODE_SECRET:local-demo-change-me}
   key-file: ${NODE_KEY_FILE:${NODE_DB:./data/node1}.key}   # Ed25519 개인키 — H2 밖에 둔다. 없으면 처음 켤 때 만든다
   patrol:                           # 순회 검사 (미정사항 12번) — 기본 꺼짐, 시연 설정에서만 켠다
     enabled: ${NODE_PATROL:false}

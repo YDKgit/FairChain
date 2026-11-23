@@ -25,6 +25,13 @@ td.body { white-space: normal; max-width: 420px; font-family: Consolas, monospac
 .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
 .nodes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .diff td { background: #fee2e2; }
+.nodes .card h2 { display: flex; align-items: center; gap: 8px; }
+.nodes .card h2 .grow { flex: 1; }
+.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inline input { flex: 1; min-width: 260px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.inline .primary { width: auto; padding: 9px 18px; }
+button.danger { border: 1px solid #fecaca; background: #fff; color: var(--bad); padding: 3px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+button:disabled { opacity: .55; cursor: default; }
 .login { max-width: 360px; margin: 80px auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
 .login h2 { margin-top: 0; }
 .login input { width: 100%; padding: 9px 10px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; }

@@ -18,7 +18,10 @@ import com.fairchain.nodeapi.NodeAdminApi;
 import com.fairchain.nodeapi.NodeAuditApi;
 import com.fairchain.nodeapi.NodeConsensusApi;
 import com.fairchain.nodeapi.NodeHeaders;
+import com.fairchain.nodeapi.NodeJoinApi;
 import com.fairchain.nodeapi.NodeMemberApi;
+import com.fairchain.nodeapi.dto.JoinChallengeDto;
+import com.fairchain.nodeapi.dto.JoinProofDto;
 import com.fairchain.nodeapi.NodeRaftApi;
 import com.fairchain.nodeapi.NodeTeamApi;
 import com.fairchain.nodeapi.NodeVerificationApi;
@@ -51,7 +54,7 @@ import java.util.List;
 /** 경로 · 매핑은 node-api 인터페이스에 있고, 여기서는 implements만 한다. /node/** 인증은 NodeAuthFilter */
 @RestController
 public class NodeController implements BlockRecordApi, NodeConsensusApi, NodeVerificationApi, NodeAuditApi,
-        NodeRaftApi, NodeAdminApi, NodeTeamApi, NodeMemberApi, NodeReportApi {
+        NodeRaftApi, NodeAdminApi, NodeTeamApi, NodeMemberApi, NodeReportApi, NodeJoinApi {
 
     private static final Logger log = LoggerFactory.getLogger(NodeController.class);
 
@@ -164,6 +167,12 @@ public class NodeController implements BlockRecordApi, NodeConsensusApi, NodeVer
             log.warn("읽을 수 없는 Raft 메시지: {}", e.toString());
             throw new IllegalArgumentException("Bad Raft message");
         }
+    }
+
+    // 가입 전 확인 (비밀값 헤더 없이 받는 유일한 경로 — NodeAuthFilter)
+    @Override
+    public JoinProofDto joinProof(JoinChallengeDto challenge) {
+        return membership.proveJoin(challenge);
     }
 
     // 운영자

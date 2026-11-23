@@ -95,10 +95,9 @@ public class NodeSettings {
         if (leaderLayer()) {
             this.teamLeader = this.id;
         } else if (teamLeader != null && !teamLeader.isBlank()) {
+            // 처음 명단(node.members)에 없는 팀 리더여도 된다 — 나중에 가입한 팀의 팀원이다.
+            // 그 팀 리더의 주소는 리더 층 노드의 멤버 명단에서 받는다 (팀 리더가 가입하기 전에는 다른 리더 층 노드에서 블록을 받는다)
             this.teamLeader = checkId(teamLeader.trim());
-            if (this.members.stream().noneMatch(m -> m.id().equals(this.teamLeader))) {
-                throw new IllegalArgumentException("node.team-leader " + this.teamLeader + " is not in node.members");
-            }
         } else {
             this.teamLeader = this.members.stream().filter(m -> m.team().equals(this.team)).map(MemberRecord::id)
                     .findFirst().orElseThrow(() -> new IllegalArgumentException(

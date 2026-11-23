@@ -1,10 +1,10 @@
 package com.fairchain.server.block.requester;
 
-import com.fairchain.api.http.HttpRequester;
 import com.fairchain.nodeapi.NodeVerificationApi;
 import com.fairchain.nodeapi.dto.BlockBatchVerifyRequestDto;
 import com.fairchain.nodeapi.dto.BlockBatchVerifyResponseDto;
 import com.fairchain.nodeapi.dto.BlockVerifyItemResultDto;
+import com.fairchain.server.block.requester.NodeDirectory.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,23 +20,24 @@ public class NodeVerificationRequester implements NodeVerificationAccess {
 
     private static final Logger log = LoggerFactory.getLogger(NodeVerificationRequester.class);
 
-    private final List<HttpRequester> nodes;
+    private final NodeDirectory directory;
     private final NodeDivergenceReporter reporter;
 
-    public NodeVerificationRequester(List<HttpRequester> nodeRequesters, NodeDivergenceReporter reporter) {
-        this.nodes = nodeRequesters;
+    public NodeVerificationRequester(NodeDirectory directory, NodeDivergenceReporter reporter) {
+        this.directory = directory;
         this.reporter = reporter;
     }
 
     @Override
     public BlockBatchVerifyResponseDto verifyBatch(BlockBatchVerifyRequestDto dto) {
+        List<Node> nodes = directory.nodes();      // 이 요청 동안은 이 목록만 쓴다
         // 노드별 응답을 블록 번호 → 결과로, 그리고 노드별 마지막 블록 번호
         List<Map<Long, BlockVerifyItemResultDto>> perNode = new ArrayList<>();
         List<Long> lastIndex = new ArrayList<>();
-        for (HttpRequester node : nodes) {
+        for (Node node : nodes) {
             try {
                 BlockBatchVerifyResponseDto response =
-                        node.post(NodeVerificationApi.VERIFY_BATCH, dto, BlockBatchVerifyResponseDto.class);
+                        node.http().post(NodeVerificationApi.VERIFY_BATCH, dto, BlockBatchVerifyResponseDto.class);
                 perNode.add(response == null ? Map.of() : response.results().stream()
                         .collect(Collectors.toMap(BlockVerifyItemResultDto::blockIndex, r -> r, (a, b) -> a)));
                 lastIndex.add(response == null ? null : response.lastBlockIndex());
@@ -58,7 +59,7 @@ public class NodeVerificationRequester implements NodeVerificationAccess {
                     BlockVerifyItemResultDto vote = votes.get(i);
                     Long last = lastIndex.get(i);
                     if (vote != null && !vote.equals(m) && (last == null || item.blockIndex() == null || last >= item.blockIndex())) {
-                        reporter.report(i, item.blockIndex(), item.recordKey());
+                        reporter.report(nodes, i, item.blockIndex(), item.recordKey());
                     }
                 }
             });

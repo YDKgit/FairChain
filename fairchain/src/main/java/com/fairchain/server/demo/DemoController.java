@@ -44,7 +44,8 @@ public class DemoController {
 
     /**
      * 노드 원장 상태 + 리더 층 Raft 상태(역할 · 임기 · 빠진 이유 · 판정 기록). 노드 비밀값은 서버에만 있으므로 브라우저 대신
-     * FairChain이 묻는다. 조회만 한다 — 가입 · 해지 · 판정은 FairChain이 하지 않는다 (노드 구조 미정사항 15번)
+     * FairChain이 묻는다. 이 화면은 조회만 한다 — 노드 추가 · 해지는 점검 화면에서 FairChain 운영자가 한다 (NodeManageController).
+     * 목록은 리더 층의 지금 투표 멤버라서 노드가 추가 · 해지되면 같이 바뀐다
      */
     @GetMapping("/api/demo/nodes")
     public List<NodeStatus> nodes() {

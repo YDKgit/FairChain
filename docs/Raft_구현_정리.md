@@ -39,7 +39,7 @@ FairChain ──기록──► 아무 리더 층 노드 (팔로워면 Raft 리�
 | 12 | 켤 때 · 투표 · 조회 때 검사 + 순회 검사(옵션, 기본 끔) | 켤 때 해시 + 서명, 조회 때 해시, `PatrolService` (`node.patrol.enabled`) |
 | 13 | 조회 응답에 마지막 블록 번호, 번호가 작으면 뒤처짐 | `lastBlockIndex`. FairChain이 뒤처짐은 신고하지 않음 |
 | 14 | 신고는 리더가 받음, 뒤처짐/갈라짐 → 이진 탐색 → 서명 검증 → 로그 | `DivergenceService`. 증거 = #k의 두 버전 · 달라진 필드 · 시각 |
-| 15 | 노드 관리 API로 가입 · 해지, learner → 승격, 3팀 미만 거부, 한 번에 하나 | `POST /node/admin/members` · `DELETE /node/admin/members/{id}`. FairChain 화면은 조회만 |
+| 15 | 노드 관리 API로 가입 · 해지, learner → 승격, 3팀 미만 거부, 한 번에 하나 | `POST /node/admin/members` · `DELETE /node/admin/members/{id}`. 가입은 주소만으로 (가입 전 확인). **"FairChain 화면은 조회만"은 바꿈** — 점검 화면에서 FairChain 운영자가 추가 · 해지 (3장 ⑪ ⑫) |
 | 16 | 블록 체인이 스냅샷, 로그는 주기적으로 자름 | 1000건마다 스냅샷(명단 · 키 · 제외 · 판정만), 빠진 블록은 `GET /node/consensus/blocks` |
 | — | 키가 둘 다 맞는데 내용이 다르면 기록 중단 + 관리자 (11/06 6장) | `Halt` → 기록 거부 → 관리자 `POST /node/admin/resume` |
 
@@ -88,6 +88,34 @@ Raft 로그에 넣지 않습니다 (답변 1 · 2번).
 답변 11번대로 관리자가 해지 → 비우기 → learner로 재가입합니다.
 
 ⑩ **FairChain 설정은 그대로**: 노드 ID는 설정에 적지 않고 노드 상태 조회에서 받습니다. 주소 목록(`fairchain.nodes.urls`)만 있으면 됩니다.
+이 목록은 **출발점**입니다. FairChain은 3초마다(`fairchain.nodes.refresh-ms`) 노드 상태를 묻고 리더가 알려 주는 멤버 명단(Raft 로그로
+정해진 값)의 투표 멤버에 맞춥니다 — 노드가 추가 · 해지돼도 FairChain을 다시 켜지 않습니다 (etcd 클라이언트가 멤버 목록으로 접속
+주소를 맞추는 것과 같음, `NodeDirectory`). 조회 다수결의 기준(2/3)도 그 목록 크기를 따릅니다: 3대 → 2대, 4대 → 3대, 5대 → 4대.
+
+⑪ **노드 추가 · 해지를 FairChain 점검 화면에서** (답변 15번 "FairChain 화면에서는 호출하지 않는다"를 바꿈 — 교수님 질문
+"노드를 자유롭게 늘리고 줄일 수 있게 돼 있나"와 그 뒤 팀 논의).
+답변 15번의 이유는 "FairChain 혼자서 기관을 뺄 수 없어야 한다"였는데, 블록체인을 FairChain이 운영하는 것으로 정했으므로 추가 · 해지도
+FairChain 운영자가 합니다. 화면: `/inspector.html` → 블록체인 노드 → **노드 추가**(주소 입력) · 노드 카드의 **해지**.
+- FairChain은 요청을 노드에 전달만 합니다. learner → 따라잡기 → 투표 멤버 승격, 3팀 미만 해지 거부, 한 번에 하나는 그대로 리더가
+  표준 Raft 멤버 변경으로 합니다 (바뀐 것은 "누가 버튼을 누르나"뿐).
+- 누를 수 있는 사람: 운영자 계정이 고객사마다 있어서 대시보드 토큰만으로는 고객사 운영자도 누를 수 있게 됩니다. 그래서 설정에 적은
+  운영자만 됩니다 — `fairchain.nodes.managers`(로그인 ID 목록), 비우면 seed 운영자(`fairchain.seed.operator-login-id`). 그 밖의
+  운영자에게는 버튼이 안 보이고 API는 403입니다.
+- 리더 층은 팀마다 노드 1대입니다. 이미 있는 팀의 둘째 노드와 팀원 노드(`node.role=member`)는 리더 층 가입을 거부합니다
+  (팀원은 지금처럼 켜지면 자기 팀 리더에 스스로 붙음).
+
+⑫ **가입 전 확인 — 가짜 노드 막기** (답변에 없던 것). 화면에 IP · 포트만 적어 노드를 붙이면 가짜 노드도 붙일 수 있다는 걱정에 대한 답입니다.
+운영자가 주소를 주면 리더가 그 주소에 무작위 값(nonce)을 보내고(`POST /node/join/proof`), 새 노드는 두 가지를 돌려줍니다.
+- 노드 공유 비밀값으로 만든 HMAC-SHA256 → **비밀값을 아는 노드 = FairChain이 띄운 노드**
+- 자기 개인키로 만든 Ed25519 서명 → **명단에 등록될 공개키의 주인**
+리더는 둘 다 맞고, 노드가 알고 있는 자기 주소(`NODE_URL`)가 입력한 주소와 같을 때만 받습니다 (가짜 주소가 진짜 노드의 답을 받아다
+전달하는 것을 막음). ID · 팀 · 공개키는 운영자가 적지 않고 이 답에서 받습니다.
+- 예전 구현의 문제도 같이 고쳤습니다: 공개키를 받으려고 **확인되지 않은 주소에 비밀값 헤더를 붙여 상태 조회를 보냈습니다** — 가짜
+  주소를 넣으면 비밀값이 그쪽으로 나갔습니다. 지금은 확인이 끝나기 전에는 그 주소로 비밀값이 나가지 않습니다 (테스트로 확인).
+- 표준과의 관계: 주소로 멤버를 추가하는 것은 etcd `member add`, 가입할 쪽이 공유 비밀을 증명하는 것은 kubeadm · Docker Swarm의 가입
+  토큰과 같은 자리입니다. 운영 환경의 표준은 인증서(mTLS)인데, 인증서 발급 체계가 없어 이미 있는 공유 비밀값으로 확인합니다.
+  그래서 **비밀값은 길고 무작위여야 합니다** (기본값 `local-demo-change-me`는 로컬 시연용).
+- 막지 못하는 것: 비밀값과 서버를 모두 가진 사람(= 운영자 자신), 그리고 네트워크에서 주소 자체를 가로채는 공격(TLS가 필요).
 
 ## 4. 실행
 
@@ -97,6 +125,26 @@ python scripts/raft_nodes.py start --fresh            # PC 1대: 리더 층 3대
 python scripts/raft_nodes.py status
 python scripts/raft_nodes.py scenario                 # 시연 순서 전체 자동 확인
 ```
+
+노드 늘리기 · 줄이기 (다른 서버의 노드도):
+
+```
+# 처음 그룹을 켤 때 다른 PC에서 접속할 수 있는 주소로 (localhost로 시작하면 다른 PC의 노드가 붙지 못함)
+python scripts/raft_nodes.py start --fresh --host 192.168.0.11
+# 새 노드를 켤 PC에서: 프로세스만 켠다 (팀원도 같이 켜려면 --members 2)
+python scripts/raft_nodes.py new-node D1 --team D --host 192.168.0.14 --secret <비밀값> \
+       --leaders A1=http://192.168.0.11:9001,B1=http://192.168.0.11:9002,C1=http://192.168.0.11:9003
+# 가입: FairChain 점검 화면 → 블록체인 노드 → 노드 추가에 http://192.168.0.14:9001  (또는 add 명령)
+python scripts/raft_nodes.py add http://192.168.0.14:9001
+# 해지: 점검 화면의 해지 버튼 (또는)
+python scripts/raft_nodes.py leave D1
+```
+
+리더 층 노드 수는 3 · 5 · 7처럼 홀수가 낫습니다 (4대는 3대와 똑같이 1대 장애만 견디면서 과반이 3대로 늘어남).
+읽기 사본을 늘리는 것이면 리더 층이 아니라 팀원(`--members`)을 늘립니다 — 과반에 들어가지 않아 기록 속도에 영향이 없습니다.
+
+정할 것: 기록(Raft)은 과반이면 되지만 FairChain의 조회 다수결은 설계대로 2/3입니다. 5대일 때 기록은 2대가 꺼져도 되는데 조회는
+4대가 같은 답을 해야 해서 1대까지만 견딥니다. 5대 이상으로 갈 거면 조회 기준을 과반으로 맞출지 팀에서 정해야 합니다 (지금은 손대지 않음).
 
 PC 3대(PC 1대 = 팀 1개)와 시연 순서는 `docs/시연_시나리오.md`. 노드 설정은 `node/src/main/resources/application.yml`
 (`NODE_ID` · `NODE_MEMBERS` · `NODE_ROLE` · `NODE_URL` · `NODE_KEY_FILE` …). 예전 장부(서명 없는 블록)로는 켤 때 검사에서
@@ -126,6 +174,33 @@ PC 3대 측정은 아직 못 했습니다 (9단계, 같은 명령으로 `측정_
 | `inspect/InspectorService`, `static/inspector.html` | 노드별 Raft 상태 · 판정 기록 (조회만) |
 | 테스트 | `NodeReportingTest`(4), `BlockRecordRetryTest`(2) 추가. 기존 `FairChainApiTest` 19개 그대로 통과 |
 
+### 6-1. 노드 추가 · 해지 (`node-scaling` 브랜치, `integration` 위에서)
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `block/requester/NodeDirectory` (새 파일) | 지금 묻는 노드 목록. 설정의 주소는 출발점, 그 뒤는 리더의 멤버 명단(투표 멤버)을 따름. 따로 도는 스레드에서 3초마다 — 공용 `@Scheduled` 스레드를 쓰면 꺼진 노드를 기다리는 동안 입장 허용 · 블록 기록이 밀림 |
+| `common/config/NodeConfig` | `List<HttpRequester> nodeRequesters` 빈 → `NodeDirectory` 빈 |
+| `block/requester/BlockRecordRequester` · `NodeVerificationRequester` · `NodeDivergenceReporter` | 고정 목록 대신 `NodeDirectory`. 요청 하나를 처리하는 동안은 처음 받은 목록 하나만 씀 (도중에 목록이 바뀌어도 번호가 어긋나지 않게). 신고는 노드 순서와 그 목록을 같이 넘김 |
+| `block/requester/NodeLedgerRequester` · `NodeLedgerAccess` | `blocks(번호, …)` → `blocks(주소, …)`, `NodeLedger`에 `id` 추가 (꺼진 노드도 해지할 수 있게) |
+| `block/requester/NodeMembershipRequester` (새 파일) | 노드 추가(주소만) · 해지 요청을 리더부터 차례로 전달 |
+| `inspect/NodeManageController` (새 파일) | `GET /dashboard/nodes/access` · `POST /dashboard/nodes` · `DELETE /dashboard/nodes/{id}`. 토큰은 `X-Dashboard-Token` 헤더, 설정에 적은 운영자만 |
+| `inspect/InspectorService` | `NodeView`에 `id`, `blocks` 호출을 주소로 (2줄) |
+| `common/config/FairChainProperties` | `Nodes`에 `managers` |
+| `static/inspector.html` · `js/console.js` · `css/console.css` | 노드 추가 칸 · 해지 버튼 · `sendWithToken`. "다른 노드" 표시를 노드 수와 무관하게 |
+| `static/demo.html` · `js/demo.js` · `demo/DemoController` | "과반(2대 이상)" 고정 문구 → 지금 노드 수로 계산한 과반 (조회만, 그대로) |
+| 테스트 | `NodeDirectoryTest`(8) · `NodeManageControllerTest`(4) 추가, `NodeReportingTest` 시그니처 맞춤 |
+
+노드 쪽은 `MembershipService`(가입 전 확인 · 주소만으로 가입 · 팀마다 1대), `NodeAuthFilter`(확인 경로만 비밀값 없이), `security/JoinProof`(새 파일),
+`NodeKeys`(임의 바이트 서명), `PeerClient`(가입 요청은 오래 기다려 전달), `NodeSettings` · `MemberReplicaService`(나중에 가입한 팀의 팀원),
+node-api의 `NodeJoinApi` · `JoinChallengeDto` · `JoinProofDto`. 테스트: `MembershipChangeTest` 2 → 4 (가짜 노드 3종이 거부되고 그 주소로
+비밀값이 나가지 않음, 팀마다 1대), `JoinProofTest`(5).
+
+확인한 것 (2026-11-23): `gradlew build` 106개 통과 (node-api 3 · node 44 · fairchain 41 · fairchain-api 5 · example-server 13).
+켜져 있는 프로세스로는 PC 1대에서 노드 주소를 이 PC의 IP로 주고 확인했습니다 (다른 PC는 아직): 점검 화면에서 `http://<IP>:9004` 추가 →
+"D1 (팀 D) 가입: learner → 투표 멤버", FairChain이 다시 켜지 않고 4대로 → 예매 5건 확정 · 체크인 5/5 · 위조 티켓 TAMPERED →
+가짜 4종(노드가 아닌 주소 · 다른 비밀값의 노드 · 노드가 아는 주소와 다른 주소 · 팀원 노드) 거부 → 꺼 둔 D1을 화면에서 해지 →
+3대로 발행 · 예매 · 체크인 → 3팀에서 하나 더 빼기 거부.
+
 ## 7. 설계명세서에서 고칠 곳
 
 - 노드 합의 시퀀스(SD-0302-03 등): 제안 → 결정 → 확정 3단계 → "FairChain → 노드 → (팔로워면 리더에게 전달) → 리더가 블록 생성 ·
@@ -133,11 +208,15 @@ PC 3대 측정은 아직 못 했습니다 (9단계, 같은 명령으로 `측정_
 - 클래스 다이어그램(노드): `NodeService` 아래에 `RaftNodeHolder` · `BlockStateMachine` · `HttpRaftTransport` · `Ledger` ·
   `NodeKeys` · `DivergenceService` · `RecoveryService` · `MembershipService` · `TeamLeaderService` · `MemberReplicaService`
 - 판정 시퀀스 새로: 신고 → 뒤처짐/갈라짐 → 이진 탐색 → 서명 검증 → 제외(로그) → #k부터 복구 → 복귀(로그)
-- node-api 계약: 새 API (`NodeRaftApi` · `NodeReportApi` · `NodeAdminApi` · `NodeMemberApi` · `NodeTeamApi`), 사라진 API
+- node-api 계약: 새 API (`NodeRaftApi` · `NodeReportApi` · `NodeAdminApi` · `NodeMemberApi` · `NodeTeamApi` · `NodeJoinApi`), 사라진 API
   (`proposals` · `decision` · `confirm` · `recovery`)
+- 노드 추가 시퀀스 새로: 운영자(점검 화면) → FairChain → 리더 → 새 노드에 가입 전 확인(nonce → HMAC · 서명) → 명단 등록(로그) →
+  learner 추가 → 따라잡기 → 투표 멤버 승격 → FairChain 노드 목록 갱신
 
 ## 8. 남은 일
 
 - PC 3대 측정 (지금 방식 · Raft 같은 조건) → 하트비트 시간 제한 값 확정 (미정사항 7번)
+- 노드 추가를 실제로 다른 PC에서 확인 (지금까지는 PC 1대에서 이 PC의 IP 주소로만 확인함), 리더 층 3 · 5 · 7대일 때 기록 속도 측정
+- 해지된 팀의 팀원 노드: 지금은 그대로 남아 다른 리더 층 노드에서 블록을 계속 받는다 — 같이 끌지 정하기
 - 팀 회의: 위 3장 ① ② ③을 그대로 갈지, 담당 · 일정 (11/12 답변 끝)
 - "시간이 되면" 항목: 블록에 기록 여러 건, 팀 리더 자동 교체, 노드 간 메시지 서명 · 기관 과반 승인 — 손대지 않음
