@@ -323,13 +323,15 @@ async function refreshNodes() {
   }).join('');
   const up = list.filter(n => n.up);
   const voters = up.filter(n => n.chainValid && !n.outReason).length;
+  const need = Math.floor(list.length / 2) + 1;      // Raft 과반: 노드가 추가 · 해지되면 같이 바뀐다 (3대 → 2, 4대 → 3, 5대 → 3)
   const same = up.length > 1 && up.every(n => n.headHash === up[0].headHash);
   const anyRaft = up.find(n => n.raftRole && !n.outReason);
   const verdicts = anyRaft ? anyRaft.verdicts : [];
   const actionName = { EXCLUDED: '제외', RESTORED: '복귀', HALTED: '기록 중단', RESUMED: '재개' };
   $('nodeSummary').textContent = (same ? '노드 ' + up.length + '대의 마지막 블록 해시가 모두 같아요'
                                        : '노드끼리 마지막 블록 해시가 달라요 (기록 · 따라잡기 중이거나 노드 이상)') +
-    ' · 투표 가능한 노드 ' + voters + '대' + (voters >= 2 ? ' → 새 기록 확정 가능' : ' → 2대 미만이라 새 기록 확정 불가') +
+    ' · 리더 층 ' + list.length + '대 중 투표 가능한 노드 ' + voters + '대' +
+    (voters >= need ? ' → 과반(' + need + '대) 이상이라 새 기록 확정 가능' : ' → 과반(' + need + '대) 미만이라 새 기록 확정 불가') +
     (anyRaft && anyRaft.halted ? ' · ⛔ 기록 중단 (관리자 확인 필요)' : '') +
     (verdicts.length ? ' · 판정: ' + verdicts.slice(-4).map(v => (v.suspectId || '') + ' #' + (v.blockIndex ?? '-') + ' '
         + (actionName[v.action] || v.action) + (v.differentFields && v.differentFields.length ? ' (' + v.differentFields.join(', ') + ')' : '')).join(' → ') : '');

@@ -35,8 +35,12 @@ fairchain:
   scheduling:
     enabled: true
   nodes:
+    # 처음에 아는 노드 (출발점). 그 뒤 목록은 노드에게 물어 맞춘다 — 노드가 추가 · 해지돼도 다시 켜지 않는다
     urls: http://localhost:9001,http://localhost:9002,http://localhost:9003
     api-key: ${NODE_API_KEY:}
     timeout: 2s
+    refresh-ms: 3000            # 노드 목록을 다시 묻는 주기 (0이면 위 목록만 쓴다)
+    # 점검 화면에서 노드를 추가 · 해지할 수 있는 운영자 로그인 ID (쉼표로 여럿). 비우면 seed 운영자만
+    managers: ${NODE_MANAGERS:}
   block:
     process-interval-ms: 500    # 블록 기록 대기 줄 처리 주기

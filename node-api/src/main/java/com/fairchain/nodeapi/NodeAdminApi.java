@@ -12,8 +12,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 /**
  * 노드 관리 API (미정사항 15번) — NodeController가 구현.
  *
- * 가입 · 해지는 운영자가 스크립트나 curl로 리더에게 요청한다(다른 노드가 받으면 리더에게 넘긴다).
- * FairChain 화면에서는 호출하지 않는다: FairChain 혼자서 기관을 뺄 수 없어야 하기 때문이다. FairChain은 상태 조회만 한다.
+ * 가입 · 해지는 FairChain 운영자가 점검 화면(노드 추가 · 해지)이나 스크립트로 요청한다. 아무 노드에나 보내면 리더에게 넘어간다.
+ * 블록체인은 FairChain이 운영하는 것으로 정했기 때문이다 (11/12 답변 15번 "FairChain 화면에서는 호출하지 않는다"를 바꿈).
+ * 가입할 노드는 주소만 알려 주면 되고, 리더가 그 노드에게 직접 확인한다 ({@link NodeJoinApi}).
  */
 public interface NodeAdminApi {
 
@@ -22,7 +23,7 @@ public interface NodeAdminApi {
     String STATUS = "/node/admin/status";
     String RESUME = "/node/admin/resume";
 
-    /** 가입: learner로 붙여 따라잡게 한 뒤 투표 멤버로 올린다. 한 번에 하나씩 */
+    /** 가입: 그 주소의 노드를 확인한 뒤 learner로 붙여 따라잡게 하고 투표 멤버로 올린다. 한 번에 하나씩 */
     @PostMapping(MEMBERS)
     MembershipResultDto addMember(@RequestBody MemberJoinDto member);
 

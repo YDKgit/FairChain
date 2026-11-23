@@ -1,11 +1,11 @@
 package com.fairchain.server.block.requester;
 
-import com.fairchain.api.http.HttpRequester;
 import com.fairchain.nodeapi.BlockRecordApi;
 import com.fairchain.nodeapi.dto.BlockRecordDto;
 import com.fairchain.nodeapi.dto.BlockResultDto;
 import com.fairchain.nodeapi.dto.BlockVerifyDto;
 import com.fairchain.nodeapi.dto.BlockVerifyResultDto;
+import com.fairchain.server.block.requester.NodeDirectory.Node;
 import com.fairchain.server.common.ErrorCode;
 import com.fairchain.server.common.FairChainException;
 import org.slf4j.Logger;
@@ -21,11 +21,11 @@ public class BlockRecordRequester implements BlockRecordAccess {
 
     private static final Logger log = LoggerFactory.getLogger(BlockRecordRequester.class);
 
-    private final List<HttpRequester> nodes;
+    private final NodeDirectory directory;
     private final NodeDivergenceReporter reporter;
 
-    public BlockRecordRequester(List<HttpRequester> nodeRequesters, NodeDivergenceReporter reporter) {
-        this.nodes = nodeRequesters;
+    public BlockRecordRequester(NodeDirectory directory, NodeDivergenceReporter reporter) {
+        this.directory = directory;
         this.reporter = reporter;
     }
 
@@ -35,9 +35,9 @@ public class BlockRecordRequester implements BlockRecordAccess {
      */
     @Override
     public BlockResultDto submitRecord(BlockRecordDto dto) {
-        for (HttpRequester node : nodes) {
+        for (Node node : directory.nodes()) {
             try {
-                BlockResultDto result = node.post(BlockRecordApi.RECORDS, dto, BlockResultDto.class);
+                BlockResultDto result = node.http().post(BlockRecordApi.RECORDS, dto, BlockResultDto.class);
                 if (result != null && result.accepted()) {
                     return result;
                 }
@@ -50,16 +50,17 @@ public class BlockRecordRequester implements BlockRecordAccess {
     }
 
     /**
-     * 노드 3대에 묻고 2/3이 같은 답이면 채택. 투표는 답의 내용(일치 여부 · 버전 · 지문)만 비교한다 — 노드마다 마지막 블록 번호는
-     * 기록이 오가는 동안 잠깐 다를 수 있기 때문이다. 다수와 다른 답을 한 노드는 번호가 더 작으면 뒤처짐(BEHIND)이라 그냥 두고,
-     * 아니면 리더 층에 신고한다 (미정사항 13번).
+     * 지금의 노드 전부(리더 층 투표 멤버)에 묻고 2/3이 같은 답이면 채택 (3대면 2대, 4대면 3대). 투표는 답의 내용(일치 여부 ·
+     * 버전 · 지문)만 비교한다 — 노드마다 마지막 블록 번호는 기록이 오가는 동안 잠깐 다를 수 있기 때문이다.
+     * 다수와 다른 답을 한 노드는 번호가 더 작으면 뒤처짐(BEHIND)이라 그냥 두고, 아니면 리더 층에 신고한다 (미정사항 13번).
      */
     @Override
     public BlockVerifyResultDto verifyRecord(BlockVerifyDto dto) {
+        List<Node> nodes = directory.nodes();      // 이 요청 동안은 이 목록만 쓴다
         List<BlockVerifyResultDto> responses = new ArrayList<>();
-        for (HttpRequester node : nodes) {
+        for (Node node : nodes) {
             try {
-                responses.add(node.post(BlockRecordApi.VERIFY, dto, BlockVerifyResultDto.class));
+                responses.add(node.http().post(BlockRecordApi.VERIFY, dto, BlockVerifyResultDto.class));
             } catch (RuntimeException e) {
                 log.warn("노드 검증 응답 없음: {}", e.getMessage());
                 responses.add(null);
@@ -67,7 +68,7 @@ public class BlockRecordRequester implements BlockRecordAccess {
         }
         List<BlockVerifyResultDto> votes = responses.stream().map(BlockRecordRequester::content).toList();
         Optional<BlockVerifyResultDto> majority = Majority.pick(votes, nodes.size());
-        majority.ifPresent(m -> reportMinority(responses, votes, m, dto.recordKey()));
+        majority.ifPresent(m -> reportMinority(nodes, responses, votes, m, dto.recordKey()));
         return majority.orElseThrow(() -> new FairChainException(ErrorCode.NODE_UNAVAILABLE, "노드 다수 응답을 얻지 못했습니다"));
     }
 
@@ -76,7 +77,7 @@ public class BlockRecordRequester implements BlockRecordAccess {
         return r == null ? null : new BlockVerifyResultDto(r.valid(), r.latestVersion(), r.latestRecordHash());
     }
 
-    private void reportMinority(List<BlockVerifyResultDto> responses, List<BlockVerifyResultDto> votes,
+    private void reportMinority(List<Node> nodes, List<BlockVerifyResultDto> responses, List<BlockVerifyResultDto> votes,
                                 BlockVerifyResultDto majority, String recordKey) {
         long top = 0;
         for (int i = 0; i < votes.size(); i++) {
@@ -94,7 +95,7 @@ public class BlockRecordRequester implements BlockRecordAccess {
                 log.debug("노드 {}는 뒤처짐 ({} < {}) — 신고하지 않음", i + 1, last, top);
                 continue;
             }
-            reporter.report(i, null, recordKey);
+            reporter.report(nodes, i, null, recordKey);
         }
     }
 }

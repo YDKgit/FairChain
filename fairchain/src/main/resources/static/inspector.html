@@ -10,7 +10,7 @@
 
 <section id="loginView" class="login">
   <h2>FairChain 점검</h2>
-  <p class="hint">운영자 계정으로 로그인하면 받은 요청 · FairChain DB · 노드 3대의 블록을 볼 수 있습니다.</p>
+  <p class="hint">운영자 계정으로 로그인하면 받은 요청 · FairChain DB · 블록체인 노드의 블록을 볼 수 있습니다.</p>
   <form id="loginForm">
     <input id="loginId" placeholder="운영자 아이디" required>
     <input id="password" type="password" placeholder="비밀번호" required>
@@ -72,7 +72,20 @@
     </section>
 
     <section id="tab-nodes" class="hidden">
-      <p class="hint">노드마다 최근 30개 블록 (최신순). 같은 번호에서 다른 노드와 해시가 다르면 빨갛게 표시합니다.</p>
+      <!-- 노드 추가 · 해지: 설정에 적은 FairChain 운영자에게만 보인다 (/dashboard/nodes/access) -->
+      <div id="nodeManage" class="card hidden">
+        <h2>노드 추가 (리더 층)</h2>
+        <form id="nodeAddForm" class="inline">
+          <input id="nodeUrl" placeholder="새 노드의 주소 — 예: http://192.168.0.14:9001" autocomplete="off" required>
+          <button id="nodeAddButton" class="primary">노드 추가</button>
+        </form>
+        <p id="nodeManageMsg" class="hint"></p>
+        <p class="hint">다른 서버에서 켠 노드도 주소만 적으면 됩니다. 리더가 그 주소의 노드에게 직접 확인해, 노드 공유 비밀값을 알고
+          자기 키를 가진 노드만 받습니다 (가짜 노드는 거부 · 확인 전에는 그 주소로 비밀값을 보내지 않음). 받은 노드는 learner로
+          블록을 다 따라잡은 뒤 투표 멤버가 되고, 그때부터 아래 목록에 나옵니다 — 블록이 많으면 답이 늦을 수 있습니다.</p>
+      </div>
+      <p class="hint">노드마다 최근 30개 블록 (최신순). 같은 번호에서 다른 노드와 해시가 다르면 빨갛게 표시합니다.
+        목록은 리더 층의 지금 투표 멤버입니다 (노드가 추가 · 해지되면 몇 초 안에 바뀝니다).</p>
       <div id="nodeCards" class="nodes"></div>
     </section>
   </main>
@@ -80,8 +93,8 @@
 
 <script src="/js/console.js"></script>
 <script>
-  const { $, esc, short, time, session, bindLogin, getWithToken } = FairChainConsole;
-  const state = { tab: 'requests', timer: null };
+  const { $, esc, short, time, session, bindLogin, getWithToken, sendWithToken } = FairChainConsole;
+  const state = { tab: 'requests', timer: null, canManage: false, busy: false };
   const TABS = ['requests', 'db', 'nodes'];
   const statusBadge = (s) => `<span class="badge s${String(s)[0]}">${s}</span>`;
   const emptyRow = (cols, text) => `<tr><td colspan="${cols}" class="hint">${text}</td></tr>`;
@@ -138,7 +151,9 @@
       votes[b.blockIndex] = votes[b.blockIndex] || {};
       votes[b.blockIndex][key] = (votes[b.blockIndex][key] || 0) + 1;
     }));
-    const odd = (b) => Object.keys(votes[b.blockIndex]).length > 1 && votes[b.blockIndex][b.blockHash + b.recordHash] < 2;
+    // 그 번호에서 가장 많은 노드가 가진 값보다 적은 쪽이 "다른 노드" (노드 수가 3대가 아니어도 맞게)
+    const most = (i) => Math.max(...Object.values(votes[i]));
+    const odd = (b) => Object.keys(votes[b.blockIndex]).length > 1 && votes[b.blockIndex][b.blockHash + b.recordHash] < most(b.blockIndex);
     $('nodeCards').innerHTML = nodes.map((n) => {
       const s = n.status;
       const r = n.raft;
@@ -156,15 +171,65 @@
       const rows = n.blocks.map((b) => `<tr class="${odd(b) ? 'diff' : ''}">
         <td>${b.blockIndex}</td><td>${short(b.recordKey)}</td><td>v${b.version}</td><td>${short(b.recordHash)}</td>
         <td>${short(b.blockHash)}</td><td>${short(b.prevBlockHash)}</td></tr>`).join('');
-      return `<div class="card"><h2 class="mono">${esc(n.url)}</h2>${head}
+      // 해지는 ID로 한다 — 꺼져 있는 노드도 뺄 수 있게 ID는 응답과 따로 받는다
+      const remove = state.canManage && n.id
+        ? `<button class="danger" data-remove="${esc(n.id)}" ${state.busy ? 'disabled' : ''}>해지</button>` : '';
+      return `<div class="card"><h2><span class="mono">${esc(n.url)}</span>${n.id ? '<span>' + esc(n.id) + '</span>' : ''}
+        <span class="grow"></span>${remove}</h2>${head}
         <table><thead><tr><th>#</th><th>recordKey</th><th>버전</th><th>recordHash</th><th>blockHash</th><th>prevHash</th></tr></thead>
         <tbody>${rows || emptyRow(6, '블록 없음')}</tbody></table></div>`;
     }).join('');
   }
 
+  // ── 노드 추가 · 해지 (FairChain 운영자) ──────────────────────────────
+  function manageMessage(text, cls) {
+    const el = $('nodeManageMsg');
+    el.textContent = text; el.className = cls || 'hint';
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    $('nodeAddButton').disabled = busy; $('nodeUrl').disabled = busy;
+  }
+
+  async function manage(what, call) {
+    if (state.busy) return false;
+    setBusy(true); manageMessage(what + ' 중… (노드가 블록을 따라잡을 때까지 기다립니다)');
+    try {
+      const r = await call();
+      manageMessage((r.accepted ? '✔ ' : '✖ 거부: ') + r.message, r.accepted ? 'ok' : 'bad');
+      return r.accepted;
+    } catch (e) {
+      manageMessage('✖ ' + e.message, 'bad');
+      return false;
+    } finally { setBusy(false); refresh(); }
+  }
+
+  $('nodeAddForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = $('nodeUrl').value.trim();
+    if (!url) return;
+    if (await manage('노드 추가', () => sendWithToken('POST', '/dashboard/nodes', { url }, logout))) $('nodeUrl').value = '';
+  });
+
+  $('nodeCards').addEventListener('click', (e) => {
+    const id = e.target.dataset && e.target.dataset.remove;
+    if (!id || state.busy) return;
+    if (!confirm(`노드 ${id}을(를) 리더 층에서 해지할까요?\n해지하면 이 노드는 투표 · 블록 저장에서 빠집니다. 남는 팀이 3개 미만이 되면 거부됩니다.`)) return;
+    manage('노드 ' + id + ' 해지', () => sendWithToken('DELETE', '/dashboard/nodes/' + encodeURIComponent(id), null, logout));
+  });
+
+  async function loadAccess() {
+    try { state.canManage = !!(await sendWithToken('GET', '/dashboard/nodes/access', null, logout)).canManage; }
+    catch (e) { state.canManage = false; }
+    $('nodeManage').classList.toggle('hidden', !state.canManage);
+  }
+
   function show(clientId) {
     $('loginView').classList.add('hidden'); $('app').classList.remove('hidden');
     $('clientId').textContent = clientId || '';
+    manageMessage('');
+    loadAccess();
     clearInterval(state.timer);
     state.timer = setInterval(() => { if ($('auto').checked) refresh(); }, 2000);
     refresh();

@@ -109,6 +109,34 @@ public class NodeKeys {
         }
     }
 
+    /** 임의의 바이트에 이 노드의 서명 (Base64) — 가입 전 확인에서 개인키를 갖고 있음을 보인다 */
+    public String signBytes(byte[] data) {
+        try {
+            Signature s = Signature.getInstance(ALGORITHM);
+            s.initSign(privateKey);
+            s.update(data);
+            return Base64.getEncoder().encodeToString(s.sign());
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Cannot sign", e);
+        }
+    }
+
+    /** 공개키(Base64)로 임의의 바이트에 대한 서명을 확인한다. 키 · 서명 형식이 틀려도 false */
+    public static boolean verifyBytes(String publicKeyBase64, byte[] data, String signature) {
+        PublicKey key = parsePublicKey(publicKeyBase64);
+        if (key == null || data == null || signature == null) {
+            return false;
+        }
+        try {
+            Signature s = Signature.getInstance(ALGORITHM);
+            s.initVerify(key);
+            s.update(data);
+            return s.verify(Base64.getDecoder().decode(signature));
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     /** Ed25519 공개키(X.509, Base64)로 읽을 수 있으면 그 키, 아니면 null */
     public static PublicKey parsePublicKey(String base64) {
         if (base64 == null || base64.isBlank()) {

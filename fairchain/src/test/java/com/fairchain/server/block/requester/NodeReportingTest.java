@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,7 +36,7 @@ class NodeReportingTest {
     private final NodeDivergenceReporter reporter = mock(NodeDivergenceReporter.class);
 
     private BlockRecordRequester records() {
-        return new BlockRecordRequester(List.of(nodes), reporter);
+        return new BlockRecordRequester(NodeDirectory.fixed(List.of(nodes)), reporter);
     }
 
     private void verifyAnswers(BlockVerifyResultDto... answers) {
@@ -52,7 +53,7 @@ class NodeReportingTest {
         BlockVerifyResultDto result = records().verifyRecord(TICKET);
         assertTrue(result.valid());
         assertEquals(2L, result.latestVersion());
-        verify(reporter, never()).report(anyInt(), any(), any());
+        verify(reporter, never()).report(any(), anyInt(), any(), any());
     }
 
     @Test
@@ -60,7 +61,7 @@ class NodeReportingTest {
         verifyAnswers(new BlockVerifyResultDto(true, 2L, H, 10L), new BlockVerifyResultDto(true, 2L, H, 10L),
                 new BlockVerifyResultDto(false, 1L, "c".repeat(64), 7L));
         assertTrue(records().verifyRecord(TICKET).valid());
-        verify(reporter, never()).report(anyInt(), any(), any());
+        verify(reporter, never()).report(any(), anyInt(), any(), any());
     }
 
     @Test
@@ -68,7 +69,7 @@ class NodeReportingTest {
         verifyAnswers(new BlockVerifyResultDto(true, 2L, H, 10L), new BlockVerifyResultDto(false, 2L, "e".repeat(64), 10L),
                 new BlockVerifyResultDto(true, 2L, H, 10L));
         assertTrue(records().verifyRecord(TICKET).valid());
-        verify(reporter).report(1, null, TICKET.recordKey());
+        verify(reporter).report(any(), eq(1), isNull(), eq(TICKET.recordKey()));
     }
 
     @Test
@@ -82,15 +83,15 @@ class NodeReportingTest {
                 .thenReturn(new BlockBatchVerifyResponseDto(List.of(bad), 4L));      // 5번이 아직 없다 → 뒤처짐
         when(nodes[2].post(eq(NodeVerificationApi.VERIFY_BATCH), any(), eq(BlockBatchVerifyResponseDto.class)))
                 .thenReturn(new BlockBatchVerifyResponseDto(List.of(ok), 9L));
-        NodeVerificationRequester requester = new NodeVerificationRequester(List.of(nodes), reporter);
+        NodeVerificationRequester requester = new NodeVerificationRequester(NodeDirectory.fixed(List.of(nodes)), reporter);
 
         BlockBatchVerifyResponseDto result = requester.verifyBatch(new BlockBatchVerifyRequestDto(List.of(item)));
         assertEquals(List.of(ok), result.results());
-        verify(reporter, never()).report(anyInt(), any(), any());
+        verify(reporter, never()).report(any(), anyInt(), any(), any());
 
         when(nodes[1].post(eq(NodeVerificationApi.VERIFY_BATCH), any(), eq(BlockBatchVerifyResponseDto.class)))
                 .thenReturn(new BlockBatchVerifyResponseDto(List.of(bad), 9L));      // 5번을 갖고 있는데 다르다 → 신고
         requester.verifyBatch(new BlockBatchVerifyRequestDto(List.of(item)));
-        verify(reporter).report(1, 5L, item.recordKey());
+        verify(reporter).report(any(), eq(1), eq(5L), eq(item.recordKey()));
     }
 }

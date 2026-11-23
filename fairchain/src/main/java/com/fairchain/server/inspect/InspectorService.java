@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** 점검 화면용 읽기 전용 조회 — 받은 요청, FairChain DB, 노드 3대의 블록 */
+/** 점검 화면용 읽기 전용 조회 — 받은 요청, FairChain DB, 노드(리더 층)의 블록 */
 @Service
 public class InspectorService {
 
@@ -56,8 +56,11 @@ public class InspectorService {
     public record DbSnapshot(List<EventRow> events, List<AnchorRow> anchorRecords, List<AdmissionRow> admissions,
                              long blockQueueSize) {}
 
-    /** @param raft 리더 층 Raft 상태 (역할 · 임기 · 제외 · 판정 기록). 예전 노드면 null */
-    public record NodeView(String url, boolean reachable, NodeLedgerStatusDto status, List<BlockDto> blocks,
+    /**
+     * @param id   노드 ID — 꺼져 있는 노드도 해지할 수 있게 응답과 따로 준다 (모르면 null)
+     * @param raft 리더 층 Raft 상태 (역할 · 임기 · 제외 · 판정 기록). 예전 노드면 null
+     */
+    public record NodeView(String id, String url, boolean reachable, NodeLedgerStatusDto status, List<BlockDto> blocks,
                            String error, NodeStatusDto raft) {}
 
     /** 이 고객사의 요청 + 인증 전에 거절된 요청 (최신순) */
@@ -92,14 +95,14 @@ public class InspectorService {
         List<NodeView> views = new ArrayList<>();
         for (NodeLedger ledger : nodeLedgerAccess.ledgers()) {
             if (!ledger.reachable()) {
-                views.add(new NodeView(ledger.url(), false, null, List.of(), ledger.error(), null));
+                views.add(new NodeView(ledger.id(), ledger.url(), false, null, List.of(), ledger.error(), null));
                 continue;
             }
             long height = ledger.height();
             List<BlockDto> newestFirst = new ArrayList<>(height == 0 ? List.of()
-                    : nodeLedgerAccess.blocks(ledger.number(), Math.max(1, height - BLOCKS + 1), BLOCKS));
+                    : nodeLedgerAccess.blocks(ledger.url(), Math.max(1, height - BLOCKS + 1), BLOCKS));
             Collections.reverse(newestFirst);
-            views.add(new NodeView(ledger.url(), true, ledger.status(), newestFirst, null, ledger.raft()));
+            views.add(new NodeView(ledger.id(), ledger.url(), true, ledger.status(), newestFirst, null, ledger.raft()));
         }
         return views;
     }

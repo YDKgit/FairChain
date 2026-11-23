@@ -49,5 +49,20 @@ const FairChainConsole = (() => {
     return res.json();
   }
 
-  return { $, esc, short, time, session, login, bindLogin, getWithToken };
+  /**
+   * 대시보드 토큰을 헤더(X-Dashboard-Token)로 붙인 요청 — 값을 바꾸는 요청에 쓴다 (토큰이 주소 · 접속 기록에 남지 않게).
+   * 401이면 세션을 비우고 onExpired. 그 밖의 실패는 서버가 준 message로 예외
+   */
+  async function sendWithToken(method, path, body, onExpired) {
+    const res = await fetch(path, {
+      method, headers: { 'Content-Type': 'application/json', 'X-Dashboard-Token': session.token || '' },
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+    if (res.status === 401) { session.clear(); onExpired(); throw new Error('토큰이 만료되었습니다. 다시 로그인하세요'); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `${path}: HTTP ${res.status}`);
+    return data;
+  }
+
+  return { $, esc, short, time, session, login, bindLogin, getWithToken, sendWithToken };
 })();

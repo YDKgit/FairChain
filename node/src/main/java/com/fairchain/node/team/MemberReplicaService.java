@@ -285,6 +285,9 @@ public class MemberReplicaService {
         keysFetchedAt = now;
         for (String leader : sources()) {
             String url = registry.urlOf(leader).orElse(null);
+            if (url == null) {
+                continue;       // 아직 리더 층에 가입하지 않은 팀 리더 — 주소를 모른다
+            }
             try {
                 NodeStatusDto s = http.get().uri(url + NodeAdminApi.STATUS)
                         .header(NodeHeaders.NODE_SECRET, settings.secret()).retrieve().body(NodeStatusDto.class);
@@ -317,6 +320,9 @@ public class MemberReplicaService {
     /** 팀 리더에게 등록 겸 상태 알림. 팀 리더가 응답하면 true */
     private boolean hello() {
         String url = registry.urlOf(settings.teamLeader()).orElse(null);
+        if (url == null) {
+            return false;       // 팀 리더가 아직 리더 층에 가입하지 않았다
+        }
         Ledger.Head head = ledger.head();
         try {
             http.post().uri(url + NodeTeamApi.MEMBERS)
