@@ -91,14 +91,15 @@ export default function Reallocation() {
                 </div>
                 <div className="realloc-rank">
                   {s.myOffer ? <><Icon name="bell" /><b className="accent">지금 내 차례</b></>
-                    : s.myRank ? <><span className="muted small">내 순번</span><b>{s.myRank}번</b></>
+                    : s.myRank ? <><span className="muted small">취소표 차례</span><b>{s.myRank}번째</b>
+                        {s.myQueueNumber && <span className="muted small">대기열 {s.myQueueNumber}번</span>}</>
                       : <span className="muted small">명단에 없음</span>}
                 </div>
               </Link>
             );
           })}
         </div>
-        <p className="muted small">대기열을 통과하고도 좌석을 못 구한 분만 명단에 오릅니다.</p>
+        <p className="muted small">대기열을 통과하고도 좌석을 못 구한 분만 명단에 오릅니다. 취소표 차례는 그분들 사이의 순서이고, 대기열 번호는 처음 줄을 선 순번입니다.</p>
       </section>
     </div>
   );

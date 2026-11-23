@@ -18,6 +18,9 @@ public interface AdmissionRepository extends JpaRepository<Admission, Long> {
     /** 점검 화면: 이 공연들의 최근 입장 기록 (최신순, 페이지 크기만큼) */
     List<Admission> findByEventIdInOrderByIdDesc(Collection<Long> eventIds, Pageable pageable);
 
+    /** 관제 대시보드의 재배정 명단: 이 회원들의 이 공연 입장 기록 (회원별 최신 것을 골라 쓴다) */
+    List<Admission> findByEventIdAndUserIdIn(Long eventId, Collection<Long> userIds);
+
     /** 관제 대시보드: 이 공연들에서 대기열을 통과해 입장한 횟수 */
     long countByEventIdIn(Collection<Long> eventIds);
 

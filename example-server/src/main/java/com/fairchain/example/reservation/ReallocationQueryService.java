@@ -1,5 +1,6 @@
 package com.fairchain.example.reservation;
 
+import com.fairchain.api.dto.ReallocationListDto;
 import com.fairchain.example.common.ApiException;
 import com.fairchain.example.concert.Concert;
 import com.fairchain.example.concert.ConcertRepository;
@@ -77,20 +78,24 @@ public class ReallocationQueryService {
         LocalDateTime nextOfferAt = (held > 0 && open.isEmpty() && !finalWindow) ? schedule.nextOfferAt(concertId, now) : null;
 
         Long myRank = null;
+        Long myQueueNumber = null;
         OfferStatus myOfferStatus = null;
         OfferDto myOffer = null;
         if (memberId != null) {
+            Long[] place = placeInCandidates(concertId, memberId);
             if (open.isPresent()) {
                 Optional<ReallocationOffer> mine = offerRepository.findFirstByRoundIdAndMemberId(open.get().getId(), memberId);
                 myRank = mine.map(ReallocationOffer::getSequenceNumber).orElse(null);
                 myOfferStatus = mine.map(ReallocationOffer::getStatus).orElse(null);
                 myOffer = mine.filter(o -> o.isUsableBy(memberId, now)).map(this::offerDto).orElse(null);
-            } else if (held > 0 && !finalWindow) {
-                myRank = rankInCandidates(concertId, memberId);
+            } else if (!finalWindow) {
+                // 취소표가 아직 없어도 명단 순번은 보여 준다 — 안 그러면 명단에 있는 사람에게도 "명단에 없음"으로 보인다
+                myRank = place == null ? null : place[0];
             }
+            myQueueNumber = place == null ? null : place[1];
         }
         return new StatusDto(concertId, held, roundStatus, candidateCount, currentSequence, nextOfferAt, releaseAt,
-                finalWindow, myRank, myOfferStatus, myOffer);
+                finalWindow, myRank, myQueueNumber, myOfferStatus, myOffer);
     }
 
     @Transactional(readOnly = true)
@@ -134,12 +139,19 @@ public class ReallocationQueryService {
         return concertRepository.findById(concertId).orElseThrow(() -> ApiException.notFound("공연이 없습니다"));
     }
 
-    /** 회차가 열리기 전: FairChain 명단에서 내 순번 (명단에 없거나 FairChain이 답하지 않으면 null) */
-    private Long rankInCandidates(Long concertId, Long memberId) {
+    /**
+     * FairChain 명단에서 내 자리: [명단 순번(취소표 차례), 대기열 진입 순번]. 명단에 없거나 FairChain이 답하지 않으면 null.
+     * 진입 순번을 받지 못했으면 두 번째 값만 null
+     */
+    private Long[] placeInCandidates(Long concertId, Long memberId) {
         try {
-            List<Long> ids = reservationAccess.getReallocationCandidates(concertId).userIds();
-            int index = ids.indexOf(memberId);
-            return index < 0 ? null : (long) index + 1;
+            ReallocationListDto list = reservationAccess.getReallocationCandidates(concertId);
+            int index = list.userIds().indexOf(memberId);
+            if (index < 0) {
+                return null;
+            }
+            List<Long> numbers = list.sequenceNumbers();
+            return new Long[]{(long) index + 1, numbers != null && index < numbers.size() ? numbers.get(index) : null};
         } catch (RuntimeException e) {
             return null;
         }

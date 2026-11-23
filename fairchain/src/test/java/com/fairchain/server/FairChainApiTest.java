@@ -196,7 +196,7 @@ class FairChainApiTest {
         call(ReservationApi.RECORDS, record(RecordType.PURCHASE, 2, 3L, 2)).andExpect(jsonPath("$.soldOut").value(true));
 
         // 1번 · 3번은 샀고, 2번만 "입장했지만 못 산 사람"
-        verify(reallocationRepository).saveCandidates(EVENT, List.of(2L));
+        verify(reallocationRepository).saveCandidates(EVENT, List.of(2L), List.of(2L));   // 회원 2번, 대기열 진입 순번 2번
         assertThat(eventRepository.findById(EVENT).orElseThrow().getSoldOutAt()).isNotNull();
     }
 

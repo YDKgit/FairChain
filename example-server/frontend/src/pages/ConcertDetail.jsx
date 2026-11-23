@@ -113,7 +113,7 @@ export default function ConcertDetail() {
                 </div>
               )}
               {me && !realloc.myOffer && realloc.myRank && (
-                <p>내 명단 순번: <b>{realloc.myRank}번</b> {realloc.myOfferStatus ? `(${offerStatusText[realloc.myOfferStatus] || realloc.myOfferStatus})` : ''}</p>
+                <p>내 취소표 차례: <b>{realloc.myRank}번째</b>{realloc.myQueueNumber ? ` (대기열 ${realloc.myQueueNumber}번)` : ''} {realloc.myOfferStatus ? `(${offerStatusText[realloc.myOfferStatus] || realloc.myOfferStatus})` : ''}</p>
               )}
               {me && !realloc.myRank && !realloc.myOffer && state === 'soldout' && (
                 <p className="muted small">대기열을 통과하고도 좌석을 못 구한 분이 명단에 오릅니다. 내 순번은 <Link to="/reallocation" className="textlink">취소표 알림</Link>에서 확인하세요.</p>

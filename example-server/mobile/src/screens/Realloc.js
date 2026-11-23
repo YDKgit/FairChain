@@ -88,7 +88,8 @@ export default function Realloc() {
             </View>
             <View style={st.rank}>
               {s.myOffer ? <Text style={st.mine}>지금{'\n'}내 차례</Text>
-                : s.myRank ? <><Text style={st.muted}>내 순번</Text><Text style={st.rankNum}>{s.myRank}번</Text></>
+                : s.myRank ? <><Text style={st.muted}>취소표 차례</Text><Text style={st.rankNum}>{s.myRank}번째</Text>
+                    {s.myQueueNumber ? <Text style={st.muted}>대기열 {s.myQueueNumber}번</Text> : null}</>
                   : <Text style={st.muted}>명단에{'\n'}없음</Text>}
             </View>
           </Pressable>

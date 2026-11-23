@@ -26,14 +26,15 @@ public class ReallocationService {
     /** ① 최초 매진 순간: 입장했지만 못 산 사람을 원래 순번순으로 */
     @Transactional(readOnly = true)
     public void buildCandidateList(Long eventId) {
-        List<Long> userIds = admissionRepository.findNotPurchased(eventId).stream()
-                .map(Admission::getUserId)
-                .toList();
-        reallocationRepository.saveCandidates(eventId, userIds);
+        List<Admission> notPurchased = admissionRepository.findNotPurchased(eventId);
+        reallocationRepository.saveCandidates(eventId,
+                notPurchased.stream().map(Admission::getUserId).toList(),
+                notPurchased.stream().map(Admission::getSequenceNumber).toList());
     }
 
     /** ② 매진 후 취소가 나면 예제서버가 가져감 */
     public ReallocationListDto getCandidates(Long eventId) {
-        return new ReallocationListDto(eventId, reallocationRepository.findCandidates(eventId));
+        return new ReallocationListDto(eventId, reallocationRepository.findCandidates(eventId),
+                reallocationRepository.findSequenceNumbers(eventId));
     }
 }
