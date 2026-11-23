@@ -1,32 +1,23 @@
 import { useState } from 'react';
-import { del, post, put } from '../../api.js';
+import { del, put } from '../../api.js';
 import { when } from '../../utils.js';
 
-const EMPTY = { title: '', venue: '', eventOpen: '', eventStart: '', eventEnd: '', grades: 'R:132000, S:88000' };
 const toLocal = (t) => (t ? String(t).slice(0, 16) : '');
 
-/** 공연 등록 · 수정 · 삭제 */
+/** 공연 목록 · 수정 · 삭제. 새 공연은 '공연 등록' 탭에서 좌석 배치와 함께 만든다 */
 export default function ConcertPanel({ concerts, reload, toast }) {
-  const [form, setForm] = useState(EMPTY);
-  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(null);          // 수정 중인 공연 (없으면 null)
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e) => {
     e.preventDefault();
-    const seatGrades = form.grades.split(',').map((p) => p.split(':')).filter((p) => p.length === 2)
-      .map(([g, p]) => ({ gradeName: g.trim(), price: Number(p.trim()) }));
-    const body = { title: form.title, venue: form.venue, eventOpen: form.eventOpen, eventStart: form.eventStart, eventEnd: form.eventEnd, seatGrades };
     try {
-      if (editing) { await put(`/api/operator/concerts/${editing}`, body); toast('수정했습니다'); }
-      else { await post('/api/operator/concerts', body); toast('공연을 등록했습니다 — 좌석 등록 탭에서 좌석을 만들어 주세요'); }
-      setForm(EMPTY); setEditing(null); reload();
+      await put(`/api/operator/concerts/${form.id}`, { title: form.title, venue: form.venue, eventOpen: form.eventOpen, eventStart: form.eventStart, eventEnd: form.eventEnd });
+      toast('수정했습니다');
+      setForm(null); reload();
     } catch (err) { toast(err.message, 'error'); }
   };
-  const edit = (c) => {
-    setEditing(c.id);
-    setForm({ title: c.title, venue: c.venue, eventOpen: toLocal(c.eventOpen), eventStart: toLocal(c.eventStart), eventEnd: toLocal(c.eventEnd),
-      grades: (c.seatGrades || []).map((g) => `${g.gradeName}:${g.price}`).join(', ') });
-  };
+  const edit = (c) => setForm({ id: c.id, title: c.title, venue: c.venue, eventOpen: toLocal(c.eventOpen), eventStart: toLocal(c.eventStart), eventEnd: toLocal(c.eventEnd) });
   const remove = async (c) => {
     if (!window.confirm(`"${c.title}" 공연을 삭제할까요?`)) return;
     try { await del(`/api/operator/concerts/${c.id}`); toast('삭제했습니다'); reload(); } catch (err) { toast(err.message, 'error'); }
@@ -47,19 +38,28 @@ export default function ConcertPanel({ concerts, reload, toast }) {
           </tbody></table>
       </div>
       <div className="card">
-        <h3>{editing ? `공연 수정 (#${editing})` : '공연 등록'}</h3>
-        <form className="form" onSubmit={submit}>
-          <label>제목<input value={form.title} onChange={set('title')} required /></label>
-          <label>공연장<input value={form.venue} onChange={set('venue')} required /></label>
-          <label>예매 오픈<input type="datetime-local" value={form.eventOpen} onChange={set('eventOpen')} required /></label>
-          <label>공연 시작<input type="datetime-local" value={form.eventStart} onChange={set('eventStart')} required /></label>
-          <label>공연 종료<input type="datetime-local" value={form.eventEnd} onChange={set('eventEnd')} required /></label>
-          {!editing && <label>좌석 등급 (등급:가격, …)<input value={form.grades} onChange={set('grades')} /></label>}
-          <div className="row gap">
-            <button className="btn">{editing ? '저장' : '등록'}</button>
-            {editing && <button type="button" className="btn ghost" onClick={() => { setEditing(null); setForm(EMPTY); }}>취소</button>}
-          </div>
-        </form>
+        {form ? (
+          <>
+            <h3>공연 수정 (#{form.id})</h3>
+            <form className="form" onSubmit={submit}>
+              <label>제목<input value={form.title} onChange={set('title')} required /></label>
+              <label>공연장<input value={form.venue} onChange={set('venue')} required /></label>
+              <label>예매 오픈<input type="datetime-local" value={form.eventOpen} onChange={set('eventOpen')} required /></label>
+              <label>공연 시작<input type="datetime-local" value={form.eventStart} onChange={set('eventStart')} required /></label>
+              <label>공연 종료<input type="datetime-local" value={form.eventEnd} onChange={set('eventEnd')} required /></label>
+              <div className="row gap">
+                <button className="btn">저장</button>
+                <button type="button" className="btn ghost" onClick={() => setForm(null)}>취소</button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <h3>공연 수정 · 삭제</h3>
+            <p className="muted">목록에서 <b>수정</b>을 누르면 제목 · 공연장 · 시간을 바꿀 수 있습니다.</p>
+            <p className="muted">새 공연은 <b>공연 등록</b> 탭에서 좌석 배치와 함께 만듭니다. 좌석이 등록된 공연은 FairChain에 기록이 남아 있어 삭제할 수 없습니다.</p>
+          </>
+        )}
       </div>
     </div>
   );

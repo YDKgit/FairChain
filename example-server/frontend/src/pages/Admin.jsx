@@ -9,7 +9,7 @@ import ConcertPanel from './admin/ConcertPanel.jsx';
 import SeatPanel from './admin/SeatPanel.jsx';
 import StaffPanel from './admin/StaffPanel.jsx';
 
-const TABS = [['dashboard', '대시보드'], ['realloc', '취소표 재배정'], ['concerts', '공연 관리'], ['seats', '좌석 등록'], ['staff', '게이트 스태프']];
+const TABS = [['dashboard', '대시보드'], ['realloc', '취소표 재배정'], ['seats', '공연 등록'], ['concerts', '공연 관리'], ['staff', '게이트 스태프']];
 
 /** 운영자 화면 — 시연 때 사용자 화면과 나란히 띄운다 (/admin). 탭마다 admin/ 아래 패널 하나 */
 export default function Admin() {

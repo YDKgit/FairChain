@@ -401,9 +401,23 @@ button.chip:hover { border-color: #c9c9d6; }
 .seat.empty.no { background: #f1f1f5; color: #c3c3cc; cursor: not-allowed; }
 .seat.selected { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; box-shadow: 0 4px 12px rgba(91, 61, 245, .45) !important; }
 .seat.grade-vip.empty.can { box-shadow: inset 0 -3px 0 #e0a800; }
+.seat.grade-vip.empty.no { background: #fbe7a1; color: #8a6a00; }   /* 운영자 화면(고를 수 없는 배치도)에서도 VIP가 보이게 */
 .seat.grade-r.empty.can { box-shadow: inset 0 -3px 0 var(--hot); }
 .seat.grade-s.empty.can { box-shadow: inset 0 -3px 0 #1d9bf0; }
 .seat.grade-a.empty.can { box-shadow: inset 0 -3px 0 #19a974; }
+/* 공연 등록 — 좌석 배치 만들기 (누르거나 끌어서 VIP 표시) */
+.designer { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line, #e6e6ec); border-radius: 14px; background: #fafafd; }
+.designer p { margin: 0; }
+.designer-stage { align-self: center; width: 60%; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .3em; color: #9a9aab; background: #ececf3; border-radius: 6px 6px 18px 18px; padding: 5px 0; }
+.designer-grid { display: flex; flex-direction: column; gap: 4px; align-items: center; user-select: none; touch-action: none; overflow-x: auto; padding: 4px 0; }
+.designer-row { display: flex; align-items: center; gap: 4px; }
+.designer-row .row-label { width: 18px; font-size: 11px; font-weight: 800; color: var(--muted); text-align: center; }
+.designer-seat { width: 28px; height: 28px; flex: none; padding: 0; border-radius: 40% 40% 22% 22%; border: 1px solid #d6cdff; background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 700; cursor: pointer; display: inline-grid; place-items: center; }
+.designer-seat.vip { background: #f5b800; border-color: #d99e00; color: #3d2c00; }
+.designer-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.designer-foot i.designer-seat { width: 14px; height: 14px; vertical-align: middle; margin-right: 4px; cursor: default; }
+.designer-foot .btn { margin-left: auto; }
+.designer .row label { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
 .seat-legend { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin-top: 24px; font-size: 12px; color: var(--muted); }
 .seat-legend i.seat { width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border-radius: 4px; }
 .done-page { max-width: 860px; display: flex; flex-direction: column; gap: 22px; }
