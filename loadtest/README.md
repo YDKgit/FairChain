@@ -7,6 +7,9 @@
 |---|---|
 | `fairticket.jmx` | JMeter 5.6 테스트 계획 (시나리오 A~D) |
 | `build_jmx.py` | 위 파일을 만드는 스크립트. 시나리오를 고칠 때는 이 파일을 고치고 `python3 loadtest/build_jmx.py` |
+| `JMETER-공부.md` | JMeter 개념을 우리 시나리오에 맞춰 풀어 쓴 글 (처음 보는 사람은 이것부터) |
+| `run-slow.sh` · `run-waves.sh` · `run-multi.sh` | 한 명씩 일정 간격 · 묶음으로 나눠서 · 1만 명 동시. 돌릴 때마다 공연을 새로 만들어 서버를 다시 켜지 않아도 된다 (사용법은 각 파일 맨 위) |
+| `new-concert.py` | 테스트용 공연과 좌석을 만든다 |
 
 ## 1. 준비
 

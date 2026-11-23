@@ -1,107 +1,936 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree><TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="FairTicket 부하 시나리오" enabled="true"><stringProp name="TestPlan.comments">예제서버(8080) → FairChain(8081) → 노드. 설명은 loadtest/README.md</stringProp><boolProp name="TestPlan.functional_mode">false</boolProp><boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp><boolProp name="TestPlan.serialize_threadgroups">true</boolProp><elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(host,localhost)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(port,8080)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="CONCERT" elementType="Argument"><stringProp name="Argument.name">CONCERT</stringProp><stringProp name="Argument.value">${__P(concertId,2)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="QWAIT" elementType="Argument"><stringProp name="Argument.name">QWAIT</stringProp><stringProp name="Argument.value">${__P(queueWait,0)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="TAG" elementType="Argument"><stringProp name="Argument.name">TAG</stringProp><stringProp name="Argument.value">${__P(tag,)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="OFFSET" elementType="Argument"><stringProp name="Argument.name">OFFSET</stringProp><stringProp name="Argument.value">${__P(userOffset,0)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="PREMADE" elementType="Argument"><stringProp name="Argument.name">PREMADE</stringProp><stringProp name="Argument.value">${__P(premade,false)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="OP_ID" elementType="Argument"><stringProp name="Argument.name">OP_ID</stringProp><stringProp name="Argument.value">${__P(operatorId,operator)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="OP_PW" elementType="Argument"><stringProp name="Argument.name">OP_PW</stringProp><stringProp name="Argument.value">${__P(operatorPw,operator1234)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp><elementProp name="RUN" elementType="Argument"><stringProp name="Argument.name">RUN</stringProp><stringProp name="Argument.value">${__time(HHmmss,)}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp></TestPlan><hashTree><ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP 기본값" enabled="true"><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp><stringProp name="HTTPSampler.domain">${HOST}</stringProp><stringProp name="HTTPSampler.port">${PORT}</stringProp><stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp><stringProp name="HTTPSampler.connect_timeout">5000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp></ConfigTestElement><hashTree/><HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON 헤더" enabled="true"><collectionProp name="HeaderManager.headers"><elementProp name="" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp></collectionProp></HeaderManager><hashTree/><SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="준비: 좌석 등록 (운영자)" enabled="true"><stringProp name="TestPlan.comments">예매 가능한 좌석이 -Jseats 보다 적으면 모자란 만큼 등록한다</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></SetupThreadGroup><hashTree><CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true"><collectionProp name="CookieManager.cookies"/><boolProp name="CookieManager.clearEachIteration">false</boolProp><boolProp name="CookieManager.controlledByThreadGroup">false</boolProp></CookieManager><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 운영자 로그인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"${OP_ID}","password":"${OP_PW}"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/operator/login</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 공연 확인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="모자란 좌석 계산" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 좌석이 모자라면 한 줄에 20석씩 새 줄을 만들어 등록 요청 본문을 만든다.
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="FairTicket 부하 시나리오" enabled="true">
+      <stringProp name="TestPlan.comments">예제서버(8080) → FairChain(8081) → 노드. 설명은 loadtest/README.md</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(host,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(port,8080)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="CONCERT" elementType="Argument">
+            <stringProp name="Argument.name">CONCERT</stringProp>
+            <stringProp name="Argument.value">${__P(concertId,2)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="QWAIT" elementType="Argument">
+            <stringProp name="Argument.name">QWAIT</stringProp>
+            <stringProp name="Argument.value">${__P(queueWait,0)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="TAG" elementType="Argument">
+            <stringProp name="Argument.name">TAG</stringProp>
+            <stringProp name="Argument.value">${__P(tag,)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="OFFSET" elementType="Argument">
+            <stringProp name="Argument.name">OFFSET</stringProp>
+            <stringProp name="Argument.value">${__P(userOffset,0)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PREMADE" elementType="Argument">
+            <stringProp name="Argument.name">PREMADE</stringProp>
+            <stringProp name="Argument.value">${__P(premade,false)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="OP_ID" elementType="Argument">
+            <stringProp name="Argument.name">OP_ID</stringProp>
+            <stringProp name="Argument.value">${__P(operatorId,operator)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="OP_PW" elementType="Argument">
+            <stringProp name="Argument.name">OP_PW</stringProp>
+            <stringProp name="Argument.value">${__P(operatorPw,operator1234)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RUN" elementType="Argument">
+            <stringProp name="Argument.name">RUN</stringProp>
+            <stringProp name="Argument.value">${__time(HHmmss,)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP 기본값">
+        <intProp name="HTTPSampler.connect_timeout">5000</intProp>
+        <intProp name="HTTPSampler.response_timeout">30000</intProp>
+        <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+        <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+        <stringProp name="HTTPSampler.protocol">http</stringProp>
+        <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
+        <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+          <collectionProp name="Arguments.arguments"/>
+        </elementProp>
+        <stringProp name="HTTPSampler.implementation"></stringProp>
+      </ConfigTestElement>
+      <hashTree/>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON 헤더" enabled="true">
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="" elementType="Header">
+            <stringProp name="Header.name">Content-Type</stringProp>
+            <stringProp name="Header.value">application/json</stringProp>
+          </elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="준비: 좌석 등록 (운영자)">
+        <stringProp name="TestPlan.comments">예매 가능한 좌석이 -Jseats 보다 적으면 모자란 만큼 등록한다</stringProp>
+        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 운영자 로그인" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/operator/login</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;${OP_ID}&quot;,&quot;password&quot;:&quot;${OP_PW}&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 공연 확인" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="모자란 좌석 계산" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">// 좌석이 모자라면 한 줄에 20석씩 새 줄을 만들어 등록 요청 본문을 만든다.
 // 줄 이름은 L + 글자(LA, LB, …)이고 지금 좌석 수에서 번호를 시작해서, 이미 있는 줄이나 앞선 실행의 줄과 겹치지 않는다
 def concert = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
-def need = (props.getProperty('seats', '150') as int) - (concert.emptySeats as int)
-vars.put('gradeId', concert.seatGrades[0].id as String)
-vars.put('needSeats', Math.max(0, need) as String)
-def rowName = { int i -&gt; def s = ''; i++; while (i &gt; 0) { i--; s = String.valueOf((char) (65 + i % 26)) + s; i = i.intdiv(26) }; s }
+def need = (props.getProperty(&apos;seats&apos;, &apos;150&apos;) as int) - (concert.emptySeats as int)
+vars.put(&apos;gradeId&apos;, concert.seatGrades[0].id as String)
+vars.put(&apos;needSeats&apos;, Math.max(0, need) as String)
+def rowName = { int i -&gt; def s = &apos;&apos;; i++; while (i &gt; 0) { i--; s = String.valueOf((char) (65 + i % 26)) + s; i = i.intdiv(26) }; s }
 def firstRow = concert.totalSeats as int
 def ranges = []
-for (int k = 0; k * 20 &lt; need; k++) { def r = 'L' + rowName(firstRow + k); ranges &lt;&lt; '"' + r + '1-' + r + Math.min(20, need - k * 20) + '"' }
-vars.put('seatRanges', ranges.join(','))
-if (!concert.open) { prev.setSuccessful(false); prev.setResponseMessage('이 공연은 아직 예매 오픈 전이라 시나리오를 돌릴 수 없습니다 — concertId를 바꾸세요') }</stringProp></JSR223PostProcessor><hashTree/></hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="좌석이 모자라면 등록" enabled="true"><stringProp name="IfController.condition">${__jexl3(${needSeats} &gt; 0,)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 좌석 등록 (좌석마다 FairChain 발행 기록)" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"concertId":${CONCERT},"seatGradeId":${gradeId},"seatNumbers":[${seatRanges}]}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/operator/seats</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.response_timeout">180000</stringProp></HTTPSamplerProxy><hashTree/></hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 좌석 목록" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="경합 좌석 정하기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 시나리오 B에서 모두가 동시에 노릴 좌석 하나를 정해 둔다 (예매 가능한 첫 좌석)
+for (int k = 0; k * 20 &lt; need; k++) { def r = &apos;L&apos; + rowName(firstRow + k); ranges &lt;&lt; &apos;&quot;&apos; + r + &apos;1-&apos; + r + Math.min(20, need - k * 20) + &apos;&quot;&apos; }
+vars.put(&apos;seatRanges&apos;, ranges.join(&apos;,&apos;))
+if (!concert.open) { prev.setSuccessful(false); prev.setResponseMessage(&apos;이 공연은 아직 예매 오픈 전이라 시나리오를 돌릴 수 없습니다 — concertId를 바꾸세요&apos;) }</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="좌석이 모자라면 등록" enabled="true">
+          <stringProp name="IfController.condition">${__jexl3(${needSeats} &gt; 0,)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 좌석 등록 (좌석마다 FairChain 발행 기록)" enabled="true">
+            <intProp name="HTTPSampler.response_timeout">180000</intProp>
+            <stringProp name="HTTPSampler.path">/api/operator/seats</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;concertId&quot;:${CONCERT},&quot;seatGradeId&quot;:${gradeId},&quot;seatNumbers&quot;:[${seatRanges}]}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 좌석 목록" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="경합 좌석 정하기" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">// 시나리오 B에서 모두가 동시에 노릴 좌석 하나를 정해 둔다 (예매 가능한 첫 좌석)
 def seats = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).seats
-def empty = seats.findAll { it.status == 'EMPTY' }
-props.put('raceSeatId', empty ? empty[0].seatId as String : '')
-props.put('raceWins', new java.util.concurrent.atomic.AtomicInteger(0))
-log.info('준비 끝: 예매 가능 좌석 ' + empty.size() + '석, 경합 좌석 ID ' + props.get('raceSeatId'))
-if (!empty) { prev.setSuccessful(false); prev.setResponseMessage('예매 가능한 좌석이 없습니다') }</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree><SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="준비: A 회원 미리 만들기" enabled="true"><stringProp name="TestPlan.comments">-Jusers 명의 회원을 미리 가입시킨다 (A는 로그인만 한다)</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">${__P(users,100)}</stringProp><stringProp name="ThreadGroup.ramp_time">${__P(rampUp,5)}</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></SetupThreadGroup><hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="서버가 미리 만든 회원을 쓰지 않을 때만" enabled="true"><stringProp name="IfController.condition">${__jexl3("${PREMADE}" != "true",)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 회원가입" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"a${RUN}${TAG}_${__threadNum}","password":"load1234","name":"부하a${__threadNum}","contact":"010-0000-0000"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/></hashTree></hashTree><ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="B. 같은 좌석 동시 예매" enabled="true"><stringProp name="TestPlan.comments">-JraceUsers 명이 준비 단계에서 정한 좌석 하나를 동시에 예매</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">${__P(raceUsers,20)}</stringProp><stringProp name="ThreadGroup.ramp_time">2</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></ThreadGroup><hashTree><CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true"><collectionProp name="CookieManager.cookies"/><boolProp name="CookieManager.clearEachIteration">false</boolProp><boolProp name="CookieManager.controlledByThreadGroup">false</boolProp></CookieManager><hashTree/><TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="B-0 준비: 회원가입 + 로그인" enabled="true"><boolProp name="TransactionController.includeTimers">true</boolProp><boolProp name="TransactionController.parent">false</boolProp></TransactionController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-0 회원가입" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"b${RUN}_${__threadNum}","password":"load1234","name":"부하b${__threadNum}","contact":"010-0000-0000"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-0 로그인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"b${RUN}_${__threadNum}","password":"load1234"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members/login</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/></hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-1 대기열 진입" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="변수 초기화" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">vars.put('qtry', '0'); vars.put('qfail', '0'); vars.put('qstate', 'NONE'); vars.put('rtry', '0'); vars.put('reserved', 'false')
-vars.put('seatId', ''); vars.put('ticketId', ''); vars.put('vtry', '0'); vars.put('vstate', 'NONE')</stringProp></JSR223PreProcessor><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
-def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
-vars.put('qstate', state)
-vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+def empty = seats.findAll { it.status == &apos;EMPTY&apos; }
+props.put(&apos;raceSeatId&apos;, empty ? empty[0].seatId as String : &apos;&apos;)
+props.put(&apos;raceWins&apos;, new java.util.concurrent.atomic.AtomicInteger(0))
+log.info(&apos;준비 끝: 예매 가능 좌석 &apos; + empty.size() + &apos;석, 경합 좌석 ID &apos; + props.get(&apos;raceSeatId&apos;))
+if (!empty) { prev.setSuccessful(false); prev.setResponseMessage(&apos;예매 가능한 좌석이 없습니다&apos;) }</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="준비: A 회원 미리 만들기">
+        <stringProp name="TestPlan.comments">-Jusers 명의 회원을 미리 가입시킨다 (A는 로그인만 한다)</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(users,100)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(rampUp,5)}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="서버가 미리 만든 회원을 쓰지 않을 때만" enabled="true">
+          <stringProp name="IfController.condition">${__jexl3(&quot;${PREMADE}&quot; != &quot;true&quot;,)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="준비 회원가입">
+            <stringProp name="HTTPSampler.path">/api/members</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;a${RUN}${TAG}_${__threadNum}&quot;,&quot;password&quot;:&quot;load1234&quot;,&quot;name&quot;:&quot;부하a${__threadNum}&quot;,&quot;contact&quot;:&quot;010-0000-0000&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="B. 같은 좌석 동시 예매">
+        <stringProp name="TestPlan.comments">-JraceUsers 명이 준비 단계에서 정한 좌석 하나를 동시에 예매</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(raceUsers,20)}</stringProp>
+        <intProp name="ThreadGroup.ramp_time">2</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="B-0 준비: 회원가입 + 로그인">
+          <boolProp name="TransactionController.includeTimers">true</boolProp>
+        </TransactionController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-0 회원가입">
+            <stringProp name="HTTPSampler.path">/api/members</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;b${RUN}_${__threadNum}&quot;,&quot;password&quot;:&quot;load1234&quot;,&quot;name&quot;:&quot;부하b${__threadNum}&quot;,&quot;contact&quot;:&quot;010-0000-0000&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-0 로그인">
+            <stringProp name="HTTPSampler.path">/api/members/login</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;b${RUN}_${__threadNum}&quot;,&quot;password&quot;:&quot;load1234&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-1 대기열 진입">
+          <stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="변수 초기화" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
+vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos;&apos;); vars.put(&apos;vtry&apos;, &apos;0&apos;); vars.put(&apos;vstate&apos;, &apos;NONE&apos;)</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
+def state = &apos;NONE&apos;
+try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+vars.put(&apos;qstate&apos;, state)
+vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
-def inLine = prev.isSuccessful() &amp;&amp; (state == 'WAITING' || state == 'ADMITTED')
-vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as String)</stringProp></JSR223PostProcessor><hashTree/></hashTree><WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="B-1 입장 허용까지 대기" enabled="true"><stringProp name="WhileController.condition">${__jexl3("${qstate}" != "ADMITTED" &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp></WhileController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-1 대기 순번 확인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/queue/${CONCERT}/status</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true"><stringProp name="ConstantTimer.delay">1000</stringProp></ConstantTimer><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
-def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
-vars.put('qstate', state)
-vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
+vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos;) ?: &apos;0&apos;) as int) + 1 as String)</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="B-1 입장 허용까지 대기">
+          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp>
+        </WhileController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-1 대기 순번 확인">
+            <stringProp name="HTTPSampler.path">/api/queue/${CONCERT}/status</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true">
+              <stringProp name="ConstantTimer.delay">1000</stringProp>
+            </ConstantTimer>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
+              <stringProp name="scriptLanguage">groovy</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
+def state = &apos;NONE&apos;
+try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+vars.put(&apos;qstate&apos;, state)
+vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
-def inLine = prev.isSuccessful() &amp;&amp; (state == 'WAITING' || state == 'ADMITTED')
-vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as String)</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="입장 허용됨" enabled="true"><stringProp name="IfController.condition">${__jexl3("${qstate}" == "ADMITTED",)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-2 같은 좌석 예매" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"seatId":${__P(raceSeatId,0)},"concertId":${CONCERT}}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/reservations</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="모두 모이면 동시에 예매" enabled="true"><intProp name="groupSize">0</intProp><longProp name="timeoutInMs">30000</longProp></SyncTimer><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="경합 결과" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 같은 좌석을 동시에 노렸으니 한 명만 성공해야 한다. 나머지의 거절은 정상이라 실패로 세지 않는다
+def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
+vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos;) ?: &apos;0&apos;) as int) + 1 as String)</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="입장 허용됨" enabled="true">
+          <stringProp name="IfController.condition">${__jexl3(&quot;${qstate}&quot; == &quot;ADMITTED&quot;,)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-2 같은 좌석 예매">
+            <stringProp name="HTTPSampler.path">/api/reservations</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;seatId&quot;:${__P(raceSeatId,0)},&quot;concertId&quot;:${CONCERT}}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="모두 모이면 동시에 예매" enabled="true">
+              <stringProp name="groupSize">${__P(syncGroup,0)}</stringProp>
+              <longProp name="timeoutInMs">30000</longProp>
+            </SyncTimer>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="경합 결과" enabled="true">
+              <stringProp name="scriptLanguage">groovy</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script">// 같은 좌석을 동시에 노렸으니 한 명만 성공해야 한다. 나머지의 거절은 정상이라 실패로 세지 않는다
 def r = null
 try { r = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()) } catch (e) { }
-if (prev.getResponseCode() == '200' &amp;&amp; r?.success) {
-    props.get('raceWins').incrementAndGet()
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 성공')
-} else if (prev.getResponseCode() == '200' &amp;&amp; r != null) {
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 거절 (정상)')
+if (prev.getResponseCode() == &apos;200&apos; &amp;&amp; r?.success) {
+    props.get(&apos;raceWins&apos;).incrementAndGet()
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 성공&apos;)
+} else if (prev.getResponseCode() == &apos;200&apos; &amp;&amp; r != null) {
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 거절 (정상)&apos;)
     prev.setSuccessful(true)
-}</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree></hashTree><ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="A. 예매 오픈 폭주" enabled="true"><stringProp name="TestPlan.comments">-Jusers 명이 미리 만든 회원으로 -JrampUp 초에 걸쳐 로그인한 뒤 한꺼번에 대기열 진입</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">${__P(users,100)}</stringProp><stringProp name="ThreadGroup.ramp_time">${__P(rampUp,5)}</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></ThreadGroup><hashTree><CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true"><collectionProp name="CookieManager.cookies"/><boolProp name="CookieManager.clearEachIteration">false</boolProp><boolProp name="CookieManager.controlledByThreadGroup">false</boolProp></CookieManager><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-0 로그인 (미리 만든 회원)" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"${loginId}","password":"load1234"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members/login</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="회원 아이디 정하기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// -Jpremade=true 면 서버가 켜질 때 만들어 둔 회원(load1 … loadN, EXAMPLE_LOAD_MEMBERS)을 쓴다.
+}</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="A. 예매 오픈 폭주">
+        <stringProp name="TestPlan.comments">-Jusers 명이 미리 만든 회원으로 -JrampUp 초에 걸쳐 로그인한 뒤 한꺼번에 대기열 진입</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(users,100)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(rampUp,5)}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-0 로그인 (미리 만든 회원)">
+          <stringProp name="HTTPSampler.path">/api/members/login</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;${loginId}&quot;,&quot;password&quot;:&quot;load1234&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="회원 아이디 정하기" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">// -Jpremade=true 면 서버가 켜질 때 만들어 둔 회원(load1 … loadN, EXAMPLE_LOAD_MEMBERS)을 쓴다.
 // JMeter를 여러 개 띄울 때는 -JuserOffset 으로 번호가 겹치지 않게 한다. 아니면 준비 단계에서 가입시킨 회원
 def n = ctx.getThreadNum() + 1
-vars.put('loginId', props.getProperty('premade', 'false') == 'true'
-    ? 'load' + ((vars.get('OFFSET') as int) + n)
-    : 'a' + vars.get('RUN') + vars.get('TAG') + '_' + n)</stringProp></JSR223PreProcessor><hashTree/></hashTree><JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="A-1 정해진 시각까지 대기 (enterAt)" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// -JenterAt=&lt;시각(ms)&gt; 을 주면 그 시각까지 기다린다. JMeter 한 개가 만들 수 있는 스레드 수에 한도가 있어
+vars.put(&apos;loginId&apos;, props.getProperty(&apos;premade&apos;, &apos;false&apos;) == &apos;true&apos;
+    ? &apos;load&apos; + ((vars.get(&apos;OFFSET&apos;) as int) + n)
+    : &apos;a&apos; + vars.get(&apos;RUN&apos;) + vars.get(&apos;TAG&apos;) + &apos;_&apos; + n)</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="A-1 정해진 시각까지 대기 (enterAt)">
+          <stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="script">// -JenterAt=&lt;시각(ms)&gt; 을 주면 그 시각까지 기다린다. JMeter 한 개가 만들 수 있는 스레드 수에 한도가 있어
 // (macOS는 프로세스당 약 6천 개) 여러 개를 띄울 때, 모두 같은 순간에 대기열에 들어가게 하려는 것이다
 SampleResult.setIgnore()
-def at = (props.getProperty('enterAt', '0') as long)
+def at = (props.getProperty(&apos;enterAt&apos;, &apos;0&apos;) as long)
 def left = at - System.currentTimeMillis()
-if (left &gt; 0) Thread.sleep(left)</stringProp></JSR223Sampler><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-1 대기열 진입" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="모두 모이면 동시에 진입" enabled="true"><intProp name="groupSize">0</intProp><longProp name="timeoutInMs">600000</longProp></SyncTimer><hashTree/><JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="변수 초기화" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">vars.put('qtry', '0'); vars.put('qfail', '0'); vars.put('qstate', 'NONE'); vars.put('rtry', '0'); vars.put('reserved', 'false')
-vars.put('seatId', ''); vars.put('ticketId', ''); vars.put('vtry', '0'); vars.put('vstate', 'NONE')</stringProp></JSR223PreProcessor><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
-def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
-vars.put('qstate', state)
-vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+if (left &gt; 0) Thread.sleep(left)</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-1 대기열 진입">
+          <stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="모두 모이면 동시에 진입" enabled="true">
+            <stringProp name="groupSize">${__P(syncGroup,0)}</stringProp>
+            <longProp name="timeoutInMs">600000</longProp>
+          </SyncTimer>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="변수 초기화" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
+vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos;&apos;); vars.put(&apos;vtry&apos;, &apos;0&apos;); vars.put(&apos;vstate&apos;, &apos;NONE&apos;)</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
+def state = &apos;NONE&apos;
+try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+vars.put(&apos;qstate&apos;, state)
+vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
-def inLine = prev.isSuccessful() &amp;&amp; (state == 'WAITING' || state == 'ADMITTED')
-vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as String)</stringProp></JSR223PostProcessor><hashTree/></hashTree><WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="A-1 입장 허용까지 대기" enabled="true"><stringProp name="WhileController.condition">${__jexl3("${qstate}" != "ADMITTED" &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp></WhileController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-1 대기 순번 확인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/queue/${CONCERT}/status</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true"><stringProp name="ConstantTimer.delay">1000</stringProp></ConstantTimer><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
-def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
-vars.put('qstate', state)
-vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
+vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos;) ?: &apos;0&apos;) as int) + 1 as String)</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="A-1 입장 허용까지 대기">
+          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp>
+        </WhileController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-1 대기 순번 확인">
+            <stringProp name="HTTPSampler.path">/api/queue/${CONCERT}/status</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true">
+              <stringProp name="ConstantTimer.delay">1000</stringProp>
+            </ConstantTimer>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
+              <stringProp name="scriptLanguage">groovy</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
+def state = &apos;NONE&apos;
+try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+vars.put(&apos;qstate&apos;, state)
+vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
-def inLine = prev.isSuccessful() &amp;&amp; (state == 'WAITING' || state == 'ADMITTED')
-vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as String)</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="입장 허용됨" enabled="true"><stringProp name="IfController.condition">${__jexl3("${qstate}" == "ADMITTED",)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="A-2 좌석 잡기 (최대 5번)" enabled="true"><stringProp name="WhileController.condition">${__jexl3("${reserved}" != "true" &amp;&amp; ${rtry} &lt; 5,)}</stringProp></WhileController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-2 좌석 조회" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true"><stringProp name="ConstantTimer.delay">300</stringProp><stringProp name="RandomTimer.range">700</stringProp></UniformRandomTimer><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="좌석 고르기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 예매 가능한 좌석 중 하나를 무작위로 고른다 (실제 사용자가 서로 다른 좌석을 누르는 것처럼). 없으면 매진으로 끝낸다
+def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
+vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos;) ?: &apos;0&apos;) as int) + 1 as String)</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="입장 허용됨" enabled="true">
+          <stringProp name="IfController.condition">${__jexl3(&quot;${qstate}&quot; == &quot;ADMITTED&quot;,)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="A-2 좌석 잡기 (최대 5번)">
+            <stringProp name="WhileController.condition">${__jexl3(&quot;${reserved}&quot; != &quot;true&quot; &amp;&amp; ${rtry} &lt; 5,)}</stringProp>
+          </WhileController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-2 좌석 조회">
+              <stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <stringProp name="HTTPSampler.method">GET</stringProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+                <collectionProp name="Arguments.arguments"/>
+              </elementProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true">
+                <stringProp name="ConstantTimer.delay">300</stringProp>
+                <stringProp name="RandomTimer.range">700</stringProp>
+              </UniformRandomTimer>
+              <hashTree/>
+              <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="좌석 고르기" enabled="true">
+                <stringProp name="scriptLanguage">groovy</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="cacheKey">true</stringProp>
+                <stringProp name="script">// 예매 가능한 좌석 중 하나를 무작위로 고른다 (실제 사용자가 서로 다른 좌석을 누르는 것처럼). 없으면 매진으로 끝낸다
 def seats = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).seats
-def empty = seats.findAll { it.status == 'EMPTY' }
-vars.put('rtry', ((vars.get('rtry') ?: '0') as int) + 1 as String)
+def empty = seats.findAll { it.status == &apos;EMPTY&apos; }
+vars.put(&apos;rtry&apos;, ((vars.get(&apos;rtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
 if (empty) {
-    vars.put('seatId', empty[new Random().nextInt(empty.size())].seatId as String)
+    vars.put(&apos;seatId&apos;, empty[new Random().nextInt(empty.size())].seatId as String)
 } else {
-    vars.put('seatId', ''); vars.put('rtry', '99')
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 매진이라 포기')
-}</stringProp></JSR223PostProcessor><hashTree/></hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="고른 좌석이 있으면" enabled="true"><stringProp name="IfController.condition">${__jexl3("${seatId}" != "",)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-3 예매" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"seatId":${seatId},"concertId":${CONCERT}}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/reservations</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="예매 결과" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 예매 결과: 성공이면 티켓 번호를 기억한다. 다른 사람이 먼저 잡은 좌석이면 정상적인 거절이므로 실패로 세지 않고 다시 고른다
+    vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;rtry&apos;, &apos;99&apos;)
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 매진이라 포기&apos;)
+}</stringProp>
+              </JSR223PostProcessor>
+              <hashTree/>
+            </hashTree>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="고른 좌석이 있으면">
+              <stringProp name="IfController.condition">${__jexl3(&quot;${seatId}&quot; != &quot;&quot;,)}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+              <boolProp name="IfController.useExpression">true</boolProp>
+            </IfController>
+            <hashTree>
+              <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-3 예매">
+                <stringProp name="HTTPSampler.path">/api/reservations</stringProp>
+                <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+                <stringProp name="HTTPSampler.method">POST</stringProp>
+                <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+                <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+                <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                  <collectionProp name="Arguments.arguments">
+                    <elementProp name="" elementType="HTTPArgument">
+                      <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                      <stringProp name="Argument.value">{&quot;seatId&quot;:${seatId},&quot;concertId&quot;:${CONCERT}}</stringProp>
+                      <stringProp name="Argument.metadata">=</stringProp>
+                    </elementProp>
+                  </collectionProp>
+                </elementProp>
+              </HTTPSamplerProxy>
+              <hashTree>
+                <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="예매 결과" enabled="true">
+                  <stringProp name="scriptLanguage">groovy</stringProp>
+                  <stringProp name="parameters"></stringProp>
+                  <stringProp name="filename"></stringProp>
+                  <stringProp name="cacheKey">true</stringProp>
+                  <stringProp name="script">// 예매 결과: 성공이면 티켓 번호를 기억한다. 다른 사람이 먼저 잡은 좌석이면 정상적인 거절이므로 실패로 세지 않고 다시 고른다
 def code = prev.getResponseCode()
 def r = null
 try { r = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()) } catch (e) { }
-if (code == '200' &amp;&amp; r?.success) {
-    vars.put('reserved', 'true'); vars.put('ticketId', r.ticketId as String)
-} else if (code == '200' &amp;&amp; r != null) {
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 선점 실패 (다시 고름)')
+if (code == &apos;200&apos; &amp;&amp; r?.success) {
+    vars.put(&apos;reserved&apos;, &apos;true&apos;); vars.put(&apos;ticketId&apos;, r.ticketId as String)
+} else if (code == &apos;200&apos; &amp;&amp; r != null) {
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 선점 실패 (다시 고름)&apos;)
     prev.setSuccessful(true)
-}</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree></hashTree><IfController guiclass="IfControllerPanel" testclass="IfController" testname="예매 성공" enabled="true"><stringProp name="IfController.condition">${__jexl3("${reserved}" == "true",)}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="A-4 예매 후 블록체인 검증 완료까지" enabled="true"><boolProp name="TransactionController.includeTimers">true</boolProp><boolProp name="TransactionController.parent">false</boolProp></TransactionController><hashTree><WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="검증 완료까지 확인 (최대 60초)" enabled="true"><stringProp name="WhileController.condition">${__jexl3("${vstate}" != "VERIFIED" &amp;&amp; ${vtry} &lt; 120,)}</stringProp></WhileController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-4 내 티켓 확인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/tickets/${ticketId}</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="500ms 쉬기" enabled="true"><stringProp name="ConstantTimer.delay">500</stringProp></ConstantTimer><hashTree/><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="검증 상태 읽기" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).verificationStatus ?: 'NONE' } catch (e) { }
-vars.put('vstate', state)
-vars.put('vtry', ((vars.get('vtry') ?: '0') as int) + 1 as String)</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree></hashTree></hashTree></hashTree></hashTree><ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="C. 매크로 (한 회원의 반복 요청)" enabled="true"><stringProp name="TestPlan.comments">-JmacroUsers 명이 각자 -JmacroLoops 번 연속 요청</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">${__P(macroUsers,1)}</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></ThreadGroup><hashTree><CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true"><collectionProp name="CookieManager.cookies"/><boolProp name="CookieManager.clearEachIteration">false</boolProp><boolProp name="CookieManager.controlledByThreadGroup">false</boolProp></CookieManager><hashTree/><TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="C-0 준비: 회원가입 + 로그인" enabled="true"><boolProp name="TransactionController.includeTimers">true</boolProp><boolProp name="TransactionController.parent">false</boolProp></TransactionController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-0 회원가입" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"c${RUN}_${__threadNum}","password":"load1234","name":"부하c${__threadNum}","contact":"010-0000-0000"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-0 로그인" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"loginId":"c${RUN}_${__threadNum}","password":"load1234"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/members/login</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree/></hashTree><LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="쉬지 않고 반복" enabled="true"><boolProp name="LoopController.continue_forever">true</boolProp><stringProp name="LoopController.loops">${__P(macroLoops,100)}</stringProp></LoopController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-1 대기열 반복 요청" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="차단 여부" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 한 회원이 쉬지 않고 요청하면 FairChain이 초당 한도(기본 5회)를 넘는 요청을 거절한다.
-// 예제서버는 그 거절을 502 + "요청이 너무 많습니다"로 전달한다. 이 시나리오에서는 그 거절이 기대한 결과다
+}</stringProp>
+                </JSR223PostProcessor>
+                <hashTree/>
+              </hashTree>
+            </hashTree>
+          </hashTree>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="예매 성공" enabled="true">
+            <stringProp name="IfController.condition">${__jexl3(&quot;${reserved}&quot; == &quot;true&quot;,)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="A-4 예매 후 블록체인 검증 완료까지" enabled="true">
+              <boolProp name="TransactionController.includeTimers">true</boolProp>
+            </TransactionController>
+            <hashTree>
+              <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="검증 완료까지 확인 (최대 60초)" enabled="true">
+                <stringProp name="WhileController.condition">${__jexl3(&quot;${vstate}&quot; != &quot;VERIFIED&quot; &amp;&amp; ${vtry} &lt; 120,)}</stringProp>
+              </WhileController>
+              <hashTree>
+                <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-4 내 티켓 확인" enabled="true">
+                  <stringProp name="HTTPSampler.path">/api/tickets/${ticketId}</stringProp>
+                  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+                  <stringProp name="HTTPSampler.method">GET</stringProp>
+                  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+                  <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+                  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+                    <collectionProp name="Arguments.arguments"/>
+                  </elementProp>
+                </HTTPSamplerProxy>
+                <hashTree>
+                  <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="500ms 쉬기" enabled="true">
+                    <stringProp name="ConstantTimer.delay">500</stringProp>
+                  </ConstantTimer>
+                  <hashTree/>
+                  <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="검증 상태 읽기" enabled="true">
+                    <stringProp name="scriptLanguage">groovy</stringProp>
+                    <stringProp name="parameters"></stringProp>
+                    <stringProp name="filename"></stringProp>
+                    <stringProp name="cacheKey">true</stringProp>
+                    <stringProp name="script">def state = &apos;NONE&apos;
+try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).verificationStatus ?: &apos;NONE&apos; } catch (e) { }
+vars.put(&apos;vstate&apos;, state)
+vars.put(&apos;vtry&apos;, ((vars.get(&apos;vtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)</stringProp>
+                  </JSR223PostProcessor>
+                  <hashTree/>
+                </hashTree>
+              </hashTree>
+            </hashTree>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="C. 매크로 (한 회원의 반복 요청)">
+        <stringProp name="TestPlan.comments">-JmacroUsers 명이 각자 -JmacroLoops 번 연속 요청</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(macroUsers,1)}</stringProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="세션 쿠키 (스레드마다 따로)" enabled="true">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="C-0 준비: 회원가입 + 로그인" enabled="true">
+          <boolProp name="TransactionController.includeTimers">true</boolProp>
+        </TransactionController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-0 회원가입" enabled="true">
+            <stringProp name="HTTPSampler.path">/api/members</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;c${RUN}_${__threadNum}&quot;,&quot;password&quot;:&quot;load1234&quot;,&quot;name&quot;:&quot;부하c${__threadNum}&quot;,&quot;contact&quot;:&quot;010-0000-0000&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-0 로그인" enabled="true">
+            <stringProp name="HTTPSampler.path">/api/members/login</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;loginId&quot;:&quot;c${RUN}_${__threadNum}&quot;,&quot;password&quot;:&quot;load1234&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree/>
+        </hashTree>
+        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="쉬지 않고 반복" enabled="true">
+          <boolProp name="LoopController.continue_forever">true</boolProp>
+          <stringProp name="LoopController.loops">${__P(macroLoops,100)}</stringProp>
+        </LoopController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="C-1 대기열 반복 요청" enabled="true">
+            <stringProp name="HTTPSampler.path">/api/queue/${CONCERT}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="차단 여부" enabled="true">
+              <stringProp name="scriptLanguage">groovy</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script">// 한 회원이 쉬지 않고 요청하면 FairChain이 초당 한도(기본 5회)를 넘는 요청을 거절한다.
+// 예제서버는 그 거절을 502 + &quot;요청이 너무 많습니다&quot;로 전달한다. 이 시나리오에서는 그 거절이 기대한 결과다
 def body = prev.getResponseDataAsString()
-if (prev.getResponseCode() == '200') {
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 통과')
-} else if (body.contains('요청이 너무 많습니다')) {
-    prev.setSampleLabel(prev.getSampleLabel() + ' — 차단됨 (정상)')
+if (prev.getResponseCode() == &apos;200&apos;) {
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 통과&apos;)
+} else if (body.contains(&apos;요청이 너무 많습니다&apos;)) {
+    prev.setSampleLabel(prev.getSampleLabel() + &apos; — 차단됨 (정상)&apos;)
     prev.setSuccessful(true)
-}</stringProp></JSR223PostProcessor><hashTree/></hashTree></hashTree></hashTree><ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="D. 둘러보기 (조회만)" enabled="true"><stringProp name="TestPlan.comments">-JbrowseUsers 명이 -JbrowseSeconds 초 동안 (기본 0명 = 건너뜀)</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">-1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">${__P(browseUsers,0)}</stringProp><stringProp name="ThreadGroup.ramp_time">5</stringProp><boolProp name="ThreadGroup.scheduler">true</boolProp><stringProp name="ThreadGroup.duration">${__P(browseSeconds,30)}</stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></ThreadGroup><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-1 공연 목록" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts?keyword=</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true"><stringProp name="ConstantTimer.delay">200</stringProp><stringProp name="RandomTimer.range">600</stringProp></UniformRandomTimer><hashTree/></hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-2 공연 상세" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true"><stringProp name="ConstantTimer.delay">200</stringProp><stringProp name="RandomTimer.range">600</stringProp></UniformRandomTimer><hashTree/></hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-3 좌석 현황" enabled="true"><boolProp name="HTTPSampler.postBodyRaw">false</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"></collectionProp></elementProp><stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true"><stringProp name="ConstantTimer.delay">200</stringProp><stringProp name="RandomTimer.range">600</stringProp></UniformRandomTimer><hashTree/></hashTree></hashTree><PostThreadGroup guiclass="PostThreadGroupGui" testclass="PostThreadGroup" testname="판정" enabled="true"><stringProp name="TestPlan.comments"></stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.duration"></stringProp><stringProp name="ThreadGroup.delay"></stringProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></PostThreadGroup><hashTree><JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="B 판정" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="parameters"></stringProp><stringProp name="filename"></stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script">// 통과 기준: 같은 좌석에 성공한 사람이 정확히 1명
-def wins = props.get('raceWins')?.get() ?: 0
-def racers = props.getProperty('raceUsers', '20') as int
-SampleResult.setSampleLabel('B 판정: 같은 좌석 예매 성공 ' + wins + '명 (기준 1명)')
+}</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="D. 둘러보기 (조회만)">
+        <stringProp name="TestPlan.comments">-JbrowseUsers 명이 -JbrowseSeconds 초 동안 (기본 0명 = 건너뜀)</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(browseUsers,0)}</stringProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <stringProp name="ThreadGroup.duration">${__P(browseSeconds,30)}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-1 공연 목록" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/concerts?keyword=</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true">
+            <stringProp name="ConstantTimer.delay">200</stringProp>
+            <stringProp name="RandomTimer.range">600</stringProp>
+          </UniformRandomTimer>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-2 공연 상세" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true">
+            <stringProp name="ConstantTimer.delay">200</stringProp>
+            <stringProp name="RandomTimer.range">600</stringProp>
+          </UniformRandomTimer>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="D-3 좌석 현황" enabled="true">
+          <stringProp name="HTTPSampler.path">/api/concerts/${CONCERT}/seats</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="생각하는 시간" enabled="true">
+            <stringProp name="ConstantTimer.delay">200</stringProp>
+            <stringProp name="RandomTimer.range">600</stringProp>
+          </UniformRandomTimer>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <PostThreadGroup guiclass="PostThreadGroupGui" testclass="PostThreadGroup" testname="판정">
+        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </PostThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="B 판정" enabled="true">
+          <stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="script">// 통과 기준: 같은 좌석에 성공한 사람이 정확히 1명
+def wins = props.get(&apos;raceWins&apos;)?.get() ?: 0
+def racers = props.getProperty(&apos;raceUsers&apos;, &apos;20&apos;) as int
+SampleResult.setSampleLabel(&apos;B 판정: 같은 좌석 예매 성공 &apos; + wins + &apos;명 (기준 1명)&apos;)
 SampleResult.setSuccessful(racers == 0 || wins == 1)
-SampleResult.setResponseMessage('성공 ' + wins + '명 / 시도 ' + racers + '명')
-SampleResult.setResponseData('성공 ' + wins + '명 / 시도 ' + racers + '명', 'UTF-8')</stringProp></JSR223Sampler><hashTree/></hashTree><ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서 (GUI에서 볼 때)" enabled="true"><boolProp name="ResultCollector.error_logging">false</boolProp><objProp><name>saveConfig</name><value class="SampleSaveConfiguration"><time>true</time><latency>true</latency><timestamp>true</timestamp><success>true</success><label>true</label><code>true</code><message>true</message><threadName>true</threadName><dataType>true</dataType><encoding>false</encoding><assertions>true</assertions><subresults>true</subresults><responseData>false</responseData><samplerData>false</samplerData><xml>false</xml><fieldNames>true</fieldNames><responseHeaders>false</responseHeaders><requestHeaders>false</requestHeaders><responseDataOnError>false</responseDataOnError><saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage><assertionsResultsToSave>0</assertionsResultsToSave><bytes>true</bytes><sentBytes>true</sentBytes><url>true</url><threadCounts>true</threadCounts><idleTime>true</idleTime><connectTime>true</connectTime></value></objProp><stringProp name="filename"></stringProp></ResultCollector><hashTree/></hashTree></hashTree></jmeterTestPlan>
+SampleResult.setResponseMessage(&apos;성공 &apos; + wins + &apos;명 / 시도 &apos; + racers + &apos;명&apos;)
+SampleResult.setResponseData(&apos;성공 &apos; + wins + &apos;명 / 시도 &apos; + racers + &apos;명&apos;, &apos;UTF-8&apos;)</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+      </hashTree>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서 (GUI에서 볼 때)">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

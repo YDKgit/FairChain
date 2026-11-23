@@ -81,6 +81,8 @@ echo $! > $LOG/fairchain.pid
 wait_port 8081 FairChain
 
 echo '[4/4] 예제서버'
+# 부하 테스트(1만 명 동시 접속)를 서버를 다시 켜지 않고 돌릴 수 있도록 연결 한도를 처음부터 넉넉히 둔다 (기본값은 8,192개)
+EXAMPLE_OPTS=${EXAMPLE_OPTS:---server.tomcat.max-connections=40000 --server.tomcat.accept-count=10000 --server.tomcat.keep-alive-timeout=900000 --server.tomcat.threads.max=400 --server.tomcat.max-keep-alive-requests=-1}
 FAIRCHAIN_URL=http://localhost:8081 FAIRCHAIN_API_KEY=$API_KEY EXAMPLE_DB_URL=$EX_DB \
 EXAMPLE_OPERATOR_PASSWORD=$OPERATOR_PW EXAMPLE_STAFF_PASSWORD=$STAFF_PW EXAMPLE_QUEUE_ENABLED=$QUEUE \
   nohup java -jar example-server/build/libs/example-server-0.0.1-SNAPSHOT.jar ${=EXAMPLE_OPTS} > $LOG/example.log 2>&1 &

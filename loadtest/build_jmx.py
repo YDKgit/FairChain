@@ -160,7 +160,7 @@ def think(base, spread):
 def all_at_once(name, timeout_ms=30000):
     """그룹의 스레드가 모두 이 자리에 올 때까지 기다렸다가 한꺼번에 보낸다 (timeout_ms 지나면 온 만큼만)"""
     return node(f'<SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="{escape(name)}" enabled="true">'
-                '<intProp name="groupSize">0</intProp><longProp name="timeoutInMs">' + str(timeout_ms) + '</longProp></SyncTimer>')
+                '<stringProp name="groupSize">${__P(syncGroup,0)}</stringProp><longProp name="timeoutInMs">' + str(timeout_ms) + '</longProp></SyncTimer>')
 
 
 def summary():
