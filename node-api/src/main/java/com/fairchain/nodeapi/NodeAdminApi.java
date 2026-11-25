@@ -27,7 +27,10 @@ public interface NodeAdminApi {
     @PostMapping(MEMBERS)
     MembershipResultDto addMember(@RequestBody MemberJoinDto member);
 
-    /** 해지: 멤버 명단에서 뺀다. 남는 팀이 3개 미만이 되면 거부 */
+    /**
+     * 해지: 멤버 명단에서 뺀다. 남는 팀이 3개 미만이 되면 거부.
+     * 해지된 노드는 스스로 Raft를 멈추고, 그 ID는 다시 쓰지 않는다 — 그 팀을 다시 넣을 때는 새 ID의 새 노드를 가입시킨다
+     */
     @DeleteMapping(MEMBER)
     MembershipResultDto removeMember(@PathVariable("id") String id);
 

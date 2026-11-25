@@ -93,6 +93,12 @@ public class RaftNodeHolder implements BlockStateMachine.Listener {
     private volatile boolean chainBroken;
     /** 이 임기에서 리더가 블록을 만들 준비가 됐는지 (임기 첫 항목 확정 확인) */
     private volatile int readyTerm = -1;
+    /** 이 노드가 리더 층에서 해지됐다 — 제외와 달리 돌아오지 않는다 (복구 · 복귀 요청을 하지 않는다) */
+    private volatile boolean removedFromGroup;
+    /** Raft 로그에서 이 노드의 해지 기록을 적용한 시각 (없으면 0). 조금 뒤 Raft를 멈춘다 */
+    private volatile long removalSeenAt;
+    /** 해지 기록을 적용한 뒤 Raft를 멈출 때까지 두는 시간 — 그동안은 멤버 변경이 확정되도록 응답을 계속 한다 */
+    private static final long REMOVAL_GRACE_MILLIS = 2000;
 
     public RaftNodeHolder(NodeSettings settings, Ledger ledger, MemberRegistry registry, NodeKeys keys,
                           RaftMessageCodec codec, ApplicationEventPublisher events) {
@@ -105,7 +111,7 @@ public class RaftNodeHolder implements BlockStateMachine.Listener {
         this.self = new NodeEndpoint(settings.id());
         Duration heartbeatTimeout = Duration.ofSeconds(settings.heartbeatTimeoutSecs());
         this.transport = new HttpRaftTransport(settings.id(), registry, codec, settings.secret(),
-                settings.messageTimeout(), heartbeatTimeout);
+                settings.messageTimeout(), heartbeatTimeout, this::toldRemoved);
         this.stateMachine = new BlockStateMachine(ledger, registry, this, keys::sign);
         this.restoreMarkerFile = new File(settings.raftStoreFile().getPath() + ".restored");
         this.restoredAt = readRestoreMarker();
@@ -138,6 +144,9 @@ public class RaftNodeHolder implements BlockStateMachine.Listener {
 
     /** 복구를 마치고 리더가 복귀를 기록한 뒤 Raft에 다시 참여한다 (Raft 상태 파일은 그대로 — 미정사항 11번) */
     public synchronized void rejoin(long restoreLogIndex) {
+        if (removedFromGroup) {
+            return;     // 해지된 노드는 복귀하지 않는다
+        }
         writeRestoreMarker(Math.max(restoredAt, restoreLogIndex));
         ledger.audit();
         chainBroken = false;
@@ -217,8 +226,87 @@ public class RaftNodeHolder implements BlockStateMachine.Listener {
 
     private void startWatchdog() {
         if (watchdogStarted.compareAndSet(false, true)) {
-            watchdog.scheduleWithFixedDelay(this::checkLeaderSilence, 250, 250, TimeUnit.MILLISECONDS);
+            watchdog.scheduleWithFixedDelay(() -> {
+                finishRemovalIfDue();
+                checkLeaderSilence();
+            }, 250, 250, TimeUnit.MILLISECONDS);
         }
+    }
+
+    // ------------------------------------------------------------------ 해지된 노드 (표준: 해지된 멤버는 멈춘다)
+
+    /**
+     * 해지된 노드는 Raft를 멈춘다 (etcd도 해지된 멤버는 스스로 꺼진다).
+     *
+     * 멈추지 않으면 생기는 일 (2026-11-25 실제로 확인): 해지된 노드는 리더가 더는 로그를 보내 주지 않아 자기가 해지된 줄 모르고,
+     * 리더 소식이 끊겼다고 보고 계속 선거를 건다. 임기 번호만 끝없이 올라가다가, 남은 멤버가 잠깐 리더를 놓친 순간 그 높은 임기를
+     * 받아들이면 멀쩡한 리더가 물러난다 (Raft 논문 4.2.3절의 "해지된 서버가 그룹을 방해하는 문제").
+     *
+     * 노드가 자기 해지를 아는 길은 셋이다:
+     * <ol>
+     *   <li>로그에서 자기 해지 기록(RemoveMember)을 적용했다 → 멤버 변경이 확정되도록 잠깐 기다린 뒤 멈춘다</li>
+     *   <li>MicroRaft가 멤버 변경을 적용하고 스스로 멈췄다 (TERMINATED)</li>
+     *   <li>남은 멤버가 이 노드의 Raft 메시지에 410으로 답했다 — 해지 기록을 못 받고 꺼져 있던 노드 ({@link #toldRemoved})</li>
+     * </ol>
+     */
+    private void finishRemovalIfDue() {
+        try {
+            RaftNode n = node;
+            if (n == null || removedFromGroup) {
+                return;
+            }
+            long seen = removalSeenAt;
+            boolean terminated = n.getStatus() == RaftNodeStatus.TERMINATED;
+            if (terminated && outReason == null && (seen != 0 || registry.isRemoved(self.id()))) {
+                leaveRemoved("Raft 로그에 이 노드의 해지가 기록됨");
+            } else if (seen != 0 && System.currentTimeMillis() - seen > REMOVAL_GRACE_MILLIS
+                    && !self.equals(n.getTerm().getLeaderEndpoint())) {
+                // 리더 자신을 해지하는 경우는 멤버 변경을 끝낸 뒤 MicroRaft가 멈춘다 (위 TERMINATED)
+                leaveRemoved("Raft 로그에 이 노드의 해지가 기록됨");
+            }
+        } catch (RuntimeException e) {
+            log.debug("해지 확인 실패: {}", e.toString());
+        }
+    }
+
+    /** 남은 멤버가 "너는 해지된 노드다"(HTTP 410)라고 답했다 */
+    private void toldRemoved(String byPeer) {
+        if (settings.leaderLayer() && !removedFromGroup) {
+            leaveRemoved("리더 층 노드 " + byPeer + "가 이 노드는 해지됐다고 알려 줌");
+        }
+    }
+
+    private void leaveRemoved(String why) {
+        synchronized (outLock) {
+            if (removedFromGroup) {
+                return;
+            }
+            removedFromGroup = true;
+            outReason = "해지됨 — " + why + ". 해지된 ID는 다시 쓰지 않는다: 이 프로세스를 끄고, 다시 넣으려면 새 ID로 새 노드를 켠다";
+        }
+        log.warn("이 노드는 리더 층에서 해지됐다 — {} (Raft를 멈춘다)", why);
+        RaftNode n = node;
+        if (n != null && n.getStatus() != RaftNodeStatus.TERMINATED) {
+            n.terminate();
+        }
+        // NodeLeftEvent를 내지 않는다: 복구(#k부터 다시 받기 · 복귀 요청)는 제외된 노드가 하는 일이고, 해지된 노드는 돌아오지 않는다
+    }
+
+    /** 이 노드가 리더 층에서 해지됐는지 (제외와 달리 복귀하지 않는다) */
+    public boolean removedFromGroup() {
+        return removedFromGroup;
+    }
+
+    /**
+     * 해지된 노드가 보낸 Raft 메시지인지. 받지 않고 410으로 답해 그 노드가 멈추게 한다 (etcd도 해지된 멤버의 연결을 거절한다).
+     * 해지 기록이 적용됐더라도 멤버 변경이 아직 이 노드에 오지 않았으면(명단에 남아 있으면) 받는다 — 그 변경을 확정하는 데 필요하다.
+     */
+    public boolean rejectsSender(RaftEndpoint sender) {
+        RaftNode n = node;
+        if (n == null || sender == null || !running()) {
+            return false;
+        }
+        return registry.isRemoved(String.valueOf(sender.getId())) && !n.getEffectiveMembers().getMembers().contains(sender);
     }
 
     /**
@@ -458,7 +546,18 @@ public class RaftNodeHolder implements BlockStateMachine.Listener {
     }
 
     @Override
+    public void removed(String nodeId, long logIndex) {
+        if (self.id().equals(nodeId) && removalSeenAt == 0) {
+            removalSeenAt = System.currentTimeMillis();
+            log.warn("이 노드의 해지가 Raft 로그 #{}에 기록됨 — 멤버 변경이 끝나면 Raft를 멈춘다", logIndex);
+        }
+    }
+
+    @Override
     public void snapshotInstalled(long logIndex) {
+        if (registry.isRemoved(self.id()) && removalSeenAt == 0) {
+            removalSeenAt = System.currentTimeMillis();     // 스냅샷으로 받은 명단에 내 해지가 들어 있다
+        }
         Optional<Long> at = registry.excludedAt(self.id());
         if (at.isPresent() && at.get() > restoredAt) {
             leave("판정으로 제외됨 (스냅샷에 기록, Raft 로그 #" + at.get() + ")",

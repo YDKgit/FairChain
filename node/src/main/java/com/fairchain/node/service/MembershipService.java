@@ -165,6 +165,12 @@ public class MembershipService {
             String id = proof.id();
             String team = proof.team().trim();
             String publicKey = proof.publicKey();
+            // 해지된 ID는 다시 쓰지 않는다 (etcd의 멤버 ID와 같은 규칙). Raft 로그에 그 ID의 해지 기록이 남아 있어, 같은 ID의 노드는
+            // 로그를 따라가다 그 기록에서 "나는 해지됐다"로 멈춘다 — 받아 주면 죽은 노드가 투표 멤버로 남아 과반만 무거워진다
+            if (registry.isRemoved(id)) {
+                return new MembershipResultDto(false, id + "는 해지된 적이 있는 ID다 — 해지된 ID는 다시 쓰지 않는다."
+                        + " 새 ID로 노드를 새로 켜서 추가한다 (예: " + id + " → " + id + "b, 장부 · 키 파일도 새로)");
+            }
             String registered = registry.get(id).map(MemberRecord::publicKey).orElse(null);
             if (registered != null && !registered.equals(publicKey)) {
                 return new MembershipResultDto(false, id + "에는 다른 공개키가 등록돼 있다 — 해지 뒤 새 키로 재가입");
@@ -322,7 +328,7 @@ public class MembershipService {
             if (report != null) {
                 Long match = report.getLog().getFollowerMatchIndices().get(endpoint);
                 long commit = report.getLog().getCommitIndex();
-                if (match != null && match >= commit && heightOf(url) >= ledgerHeight()) {
+                if (match != null && match >= commit && caughtUpAndAlive(url)) {
                     return true;
                 }
             }
@@ -335,14 +341,19 @@ public class MembershipService {
         return raft.stateMachine().logHead().index();
     }
 
-    private long heightOf(String url) {
+    /**
+     * 새 노드가 블록을 다 받았고(H2 높이) Raft에 실제로 참여하고 있는지. 높이만 보면 안 된다 — 장부는 다 갖고 있는데 Raft는 멈춘
+     * 노드를 투표 멤버로 올리면, 응답하지 않는 멤버가 늘어 과반만 무거워진다
+     */
+    private boolean caughtUpAndAlive(String url) {
         try {
-            var s = statusClient.get().uri(url + com.fairchain.nodeapi.NodeAuditApi.LEDGER_STATUS)
+            var s = statusClient.get().uri(url + com.fairchain.nodeapi.NodeAdminApi.STATUS)
                     .header(com.fairchain.nodeapi.NodeHeaders.NODE_SECRET, settings.secret())
-                    .retrieve().body(com.fairchain.nodeapi.dto.NodeLedgerStatusDto.class);
-            return s == null || s.height() == null ? -1 : s.height();
+                    .retrieve().body(com.fairchain.nodeapi.dto.NodeStatusDto.class);
+            return s != null && s.height() != null && s.height() >= ledgerHeight()
+                    && s.outReason() == null && !"NONE".equals(s.raftRole());
         } catch (Exception e) {
-            return -1;
+            return false;
         }
     }
 

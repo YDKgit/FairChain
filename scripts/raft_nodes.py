@@ -18,7 +18,8 @@ PC 1대에 시연 구성 전체(프로세스 9개)를 띄우거나, PC 1대 = �
                                                              다른 PC에서: 새 팀의 노드 프로세스만 켠다 (--members N으로 팀원도).
                                                              가입은 FairChain 점검 화면의 "노드 추가"에 주소를 적거나 add로
   python scripts/raft_nodes.py add http://192.168.0.14:9001   주소만으로 가입 요청 (리더가 그 노드를 확인 → learner → 투표 멤버)
-  python scripts/raft_nodes.py leave D1                       해지 (팀 3개 미만이 되면 거부)
+  python scripts/raft_nodes.py leave D1                       해지 (팀 3개 미만이 되면 거부). 해지된 ID는 다시 쓰지 않는다 —
+                                                             그 팀을 다시 넣을 때는 새 ID로: new-node D1b --team D --port 9005
   python scripts/raft_nodes.py resume                         기록 중단 상태를 관리자가 풀기
   python scripts/raft_nodes.py scenario                       시연 순서 전체를 자동으로 돌려 확인 (빈 장부에서 시작)
   python scripts/raft_nodes.py failover --times 10            (PC 1대) 리더 끄기를 되풀이해 새 리더까지 시간 측정

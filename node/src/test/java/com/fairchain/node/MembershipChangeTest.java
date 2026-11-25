@@ -51,15 +51,17 @@ class MembershipChangeTest {
 
     private static final String SECRET = "membership-test-secret";
     private static final String RECORD = "b".repeat(64);
-    private static final String[] IDS = {"A1", "B1", "C1", "D1"};
+    private static final String[] IDS = {"A1", "B1", "C1", "D1", "D9"};
     private static final int D1 = 3;
+    /** 해지된 팀 D가 다시 들어올 때 쓰는 새 노드 (새 ID · 새 장부 · 새 키). 필요한 테스트에서만 켠다 */
+    private static final int D9 = 4;
 
     @TempDir
     Path dir;
 
     private final String dbName = "members-" + UUID.randomUUID();
-    private final int[] ports = new int[4];
-    private final ConfigurableApplicationContext[] nodes = new ConfigurableApplicationContext[4];
+    private final int[] ports = new int[5];
+    private final ConfigurableApplicationContext[] nodes = new ConfigurableApplicationContext[5];
     private final RestClient http;
 
     MembershipChangeTest() {
@@ -71,7 +73,7 @@ class MembershipChangeTest {
 
     @BeforeEach
     void startNodes() throws IOException {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             try (ServerSocket socket = new ServerSocket(0)) {
                 ports[i] = socket.getLocalPort();
             }
@@ -83,7 +85,7 @@ class MembershipChangeTest {
 
     @AfterEach
     void stopNodes() {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             if (nodes[i] != null) {
                 nodes[i].close();
             }
@@ -284,6 +286,21 @@ class MembershipChangeTest {
                 && status(leader).members().stream().noneMatch(m -> m.id().equals("D1")));
         assertEquals(5L, write(5), "3팀으로 계속 기록");
 
+        // 해지된 노드는 꺼지지 않고 남아 있어도 스스로 Raft를 멈춘다. 예전에는 해지된 줄 모르고 계속 선거를 걸어 임기 번호가
+        // 끝없이 오르고, 남은 멤버가 그 임기를 받아들이면 리더가 물러났다
+        await("D1이 해지된 것을 알고 멈춤", () -> "NONE".equals(status(D1).raftRole())
+                && status(D1).outReason() != null && status(D1).outReason().contains("해지"));
+        int termAfterLeave = status(leader).term();
+        sleep(7_000);       // 하트비트 시간 제한(4초)보다 길게
+        assertEquals("LEADER", status(leader).raftRole(), "해지된 노드 때문에 리더가 바뀌지 않는다");
+        assertEquals(termAfterLeave, status(leader).term(), "해지된 노드가 임기 번호를 올리지 않는다");
+
+        // 해지된 ID는 다시 쓰지 않는다 (etcd의 멤버 ID와 같은 규칙) — 받아 주면 그 노드는 로그의 해지 기록에서 멈춰 죽은 멤버가 된다
+        MembershipResultDto reused = join(leader, new MemberJoinDto(null, null, url(D1), null));
+        assertFalse(reused.accepted());
+        assertTrue(reused.message().contains("해지된"), reused.message());
+        assertTrue(status(leader).members().stream().noneMatch(m -> m.id().equals("D1")), "learner로도 남지 않는다");
+
         // 3팀 → 2팀은 거부
         MembershipResultDto tooFew = http.delete().uri(url((leader + 1) % 3) + NodeAdminApi.memberPath(IDS[(leader + 2) % 3]))
                 .retrieve().body(MembershipResultDto.class);
@@ -373,6 +390,61 @@ class MembershipChangeTest {
         } catch (org.springframework.web.client.RestClientResponseException e) {
             return e.getStatusCode().value();
         }
+    }
+
+    /** 해지된 팀은 새 노드(새 ID)로 다시 들어온다. 새 노드가 따라가는 로그에는 예전 노드의 가입 · 해지 기록이 그대로 있다 */
+    @Test
+    void aRemovedTeamComesBackUnderANewNodeId() {
+        int leader = leader();
+        for (int t = 1; t <= 3; t++) {
+            assertEquals((long) t, write(t));
+        }
+        assertTrue(join(leader, new MemberJoinDto(null, null, url(D1), null)).accepted());
+        await("D1이 투표 멤버", () -> votingIds(status(leader)).equals(List.of("A1", "B1", "C1", "D1")));
+        MembershipResultDto leave = http.delete().uri(url(leader) + NodeAdminApi.memberPath("D1"))
+                .retrieve().body(MembershipResultDto.class);
+        assertTrue(leave.accepted(), leave.message());
+        await("D1이 명단에서 빠짐", () -> votingIds(status(leader)).equals(List.of("A1", "B1", "C1")));
+
+        start(D9);
+        MembershipResultDto back = join(leader, new MemberJoinDto(null, null, url(D9), null));
+        assertTrue(back.accepted(), back.message());
+        await("D9가 투표 멤버", () -> votingIds(status(leader)).equals(List.of("A1", "B1", "C1", "D9"))
+                && "FOLLOWER".equals(status(D9).raftRole()));
+        assertEquals("D", status(D9).team());
+        assertEquals(4L, write(4));
+        await("D9도 4번 블록까지 같은 체인", () -> ledger(D9).height() == 4
+                && ledger(D9).headHash().equals(ledger(leader).headHash()));
+        assertTrue(status(D9).outReason() == null, "예전 노드 D1의 해지 기록은 D9와 상관없다");
+    }
+
+    /**
+     * 꺼져 있는 동안 해지된 노드: 자기 해지 기록을 받지 못해, 다시 켜지면 아직 멤버인 줄 안다. 남은 멤버가 그 노드의 Raft 메시지에
+     * 410으로 답해 알려 주고(etcd도 해지된 멤버의 연결을 거절한다), 그 노드는 멈춘다. 그룹은 흔들리지 않는다
+     */
+    @Test
+    void aNodeRemovedWhileItWasDownStopsWhenItComesBack() {
+        int leader = leader();
+        assertEquals(1L, write(1));
+        assertTrue(join(leader, new MemberJoinDto(null, null, url(D1), null)).accepted());
+        await("D1이 투표 멤버", () -> votingIds(status(leader)).equals(List.of("A1", "B1", "C1", "D1"))
+                && "FOLLOWER".equals(status(D1).raftRole()));
+
+        nodes[D1].close();
+        nodes[D1] = null;
+        MembershipResultDto leave = http.delete().uri(url(leader) + NodeAdminApi.memberPath("D1"))
+                .retrieve().body(MembershipResultDto.class);
+        assertTrue(leave.accepted(), "꺼져 있는 노드도 해지할 수 있다: " + leave.message());
+        assertEquals(2L, write(2));
+        int term = status(leader).term();
+
+        start(D1);
+        await("D1이 남은 멤버에게 듣고 멈춤", () -> status(D1).outReason() != null && status(D1).outReason().contains("해지"));
+        assertEquals("NONE", status(D1).raftRole());
+        sleep(6_000);
+        assertEquals("LEADER", status(leader).raftRole(), "돌아온 해지 노드 때문에 리더가 바뀌지 않는다");
+        assertEquals(term, status(leader).term(), "임기 번호도 그대로");
+        assertEquals(3L, write(3));
     }
 
     /** 리더 층은 팀마다 노드 1대다: 팀원 노드와 이미 있는 팀의 둘째 노드는 리더 층에 들어오지 못한다 */

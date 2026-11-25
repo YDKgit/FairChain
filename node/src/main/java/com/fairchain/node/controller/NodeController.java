@@ -161,12 +161,19 @@ public class NodeController implements BlockRecordApi, NodeConsensusApi, NodeVer
     @Override
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void receiveRaftMessage(String message) {
+        io.microraft.model.message.RaftMessage decoded;
         try {
-            raft.handle(codec.decode(message));
+            decoded = codec.decode(message);
         } catch (RuntimeException e) {
             log.warn("읽을 수 없는 Raft 메시지: {}", e.toString());
             throw new IllegalArgumentException("Bad Raft message");
         }
+        // 해지된 노드가 (해지된 줄 모르고) 보내는 메시지는 받지 않는다 — 받으면 그 노드의 높은 임기 번호가 리더를 물러나게 할 수 있다.
+        // 410으로 답하면 그 노드는 스스로 Raft를 멈춘다
+        if (raft.rejectsSender(decoded.getSender())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "This node id was removed from the leader layer");
+        }
+        raft.handle(decoded);
     }
 
     // 가입 전 확인 (비밀값 헤더 없이 받는 유일한 경로 — NodeAuthFilter)

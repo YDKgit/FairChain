@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * Raft 메시지를 HTTP로 보낸다 (계획 4.2). {@code POST /node/raft/messages} + {@code X-Node-Secret}.
@@ -37,9 +38,12 @@ public class HttpRaftTransport implements Transport {
     private final Map<String, Long> lastSuccess = new ConcurrentHashMap<>();
     /** 같은 실패 로그가 하트비트마다 쌓이지 않게: 노드 ID → 지금 실패 중인지 */
     private final Map<String, Boolean> failing = new ConcurrentHashMap<>();
+    /** 상대가 410(Gone)으로 답했다 = 이 노드는 해지된 노드다. 인자는 그렇게 알려 준 노드 ID */
+    private final Consumer<String> onRemoved;
 
     public HttpRaftTransport(String localId, MemberRegistry registry, RaftMessageCodec codec, String secret,
-                             Duration timeout, Duration reachableWindow) {
+                             Duration timeout, Duration reachableWindow, Consumer<String> onRemoved) {
+        this.onRemoved = onRemoved;
         this.localId = localId;
         this.registry = registry;
         this.codec = codec;
@@ -81,6 +85,8 @@ public class HttpRaftTransport implements Transport {
                 if (failing.remove(id) != null) {
                     log.info("노드 {} 와 Raft 통신 회복", id);
                 }
+            } else if (error == null && response.statusCode() == 410) {
+                onRemoved.accept(id);
             } else if (failing.putIfAbsent(id, Boolean.TRUE) == null) {
                 log.info("노드 {} 에 Raft 메시지 전달 실패: {}", id,
                         error != null ? error.getClass().getSimpleName() : "HTTP " + response.statusCode());

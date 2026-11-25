@@ -15,6 +15,7 @@ import java.util.Map;
  * @param excluded 제외된 노드 ID → 제외가 기록된 Raft 로그 번호
  * @param restored 노드 ID → 마지막 복귀가 기록된 Raft 로그 번호
  * @param halted   기록 중단 상태 (서명이 둘 다 맞는 서로 다른 블록)
+ * @param removed  해지된 적이 있는 노드 ID (다시 쓰지 않는다). 예전 스냅샷에는 없어 null일 수 있다
  */
 public record LedgerSnapshot(
         long lastBlockIndex,
@@ -23,5 +24,6 @@ public record LedgerSnapshot(
         Map<String, Long> excluded,
         List<VerdictDto> verdicts,
         Map<String, Long> restored,
-        boolean halted
+        boolean halted,
+        List<String> removed
 ) implements RaftPayload {}

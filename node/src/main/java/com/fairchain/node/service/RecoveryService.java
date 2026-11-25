@@ -92,7 +92,8 @@ public class RecoveryService {
 
     private void recover(VerdictDto verdict) {
         boolean truncated = false;
-        while (!Thread.currentThread().isInterrupted() && raft.outReason() != null) {
+        // 해지된 노드는 복구하지 않는다 — 돌아올 자리가 없다 (다시 넣으려면 새 ID로 가입)
+        while (!Thread.currentThread().isInterrupted() && raft.outReason() != null && !raft.removedFromGroup()) {
             try {
                 if (verdict == null || verdict.blockIndex() == null) {
                     raft.updateOutReason("체인 손상 — 리더에게 스스로 신고해 판정을 기다리는 중");

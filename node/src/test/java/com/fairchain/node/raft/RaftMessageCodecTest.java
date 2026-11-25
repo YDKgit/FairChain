@@ -131,7 +131,7 @@ class RaftMessageCodecTest {
     @Test
     void installSnapshotCarriesTheRegistry() {
         LedgerSnapshot state = new LedgerSnapshot(40, H, List.of(new MemberRecord("A1", "A", "http://a:9001", "key")),
-                Map.of("B1", 30L), List.of(), Map.of("C1", 12L), true);
+                Map.of("B1", 30L), List.of(), Map.of("C1", 12L), true, List.of("D1"));
         SnapshotChunk chunk = f.createSnapshotChunkBuilder().setIndex(100).setTerm(3).setOperation(state)
                 .setSnapshotChunkIndex(0).setSnapshotChunkCount(1).setGroupMembersView(view()).build();
         InstallSnapshotRequest got = roundTrip(f.createInstallSnapshotRequestBuilder().setGroupId("fairchain").setSender(a)

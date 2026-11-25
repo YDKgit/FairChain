@@ -4,9 +4,11 @@ import com.fairchain.nodeapi.dto.VerdictDto;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 리더 층 Raft 로그로 정해지는 명단: 멤버(주소 · 팀 · 공개키), 제외된 노드, 판정 기록, 기록 중단 여부.
@@ -22,6 +24,12 @@ public class MemberRegistry {
     private final Map<String, Long> restored = new LinkedHashMap<>();
     private final List<VerdictDto> verdicts = new ArrayList<>();
     private final Map<String, MemberRecord> configured;
+    /**
+     * 해지된 적이 있는 노드 ID. 해지된 ID는 다시 쓰지 않는다 (etcd의 멤버 ID와 같은 규칙): Raft 로그에 그 ID의 해지 기록이 남아 있어,
+     * 같은 ID로 다시 들어온 노드는 로그를 따라가다 그 기록에서 "나는 해지됐다"로 멈춘다 (MicroRaft가 그렇게 동작한다).
+     * 해지된 노드가 꺼지지 않고 계속 보내는 Raft 메시지를 받지 않는 데에도 쓴다.
+     */
+    private final Set<String> removed = new LinkedHashSet<>();
     private boolean halted;
 
     public MemberRegistry(List<MemberRecord> configuredMembers) {
@@ -36,11 +44,21 @@ public class MemberRegistry {
         members.put(member.id(), member);
     }
 
-    /** 해지: 명단에서 뺀다 (설정 파일에 있던 멤버라도) */
+    /** 해지: 명단에서 빼고, 그 ID를 "해지된 ID"로 남긴다 (설정 파일에 있던 멤버라도) */
     public synchronized void remove(String id) {
         members.remove(id);
         configured.remove(id);
         excluded.remove(id);
+        removed.add(id);
+    }
+
+    /** 해지된 적이 있는 ID인지 — 그 ID로는 다시 가입할 수 없고, 그 ID가 보내는 Raft 메시지는 받지 않는다 */
+    public synchronized boolean isRemoved(String id) {
+        return removed.contains(id);
+    }
+
+    public synchronized List<String> removedIds() {
+        return List.copyOf(removed);
     }
 
     public synchronized Optional<MemberRecord> get(String id) {
@@ -125,7 +143,7 @@ public class MemberRegistry {
 
     public synchronized LedgerSnapshot snapshot(long lastBlockIndex, String lastBlockHash) {
         return new LedgerSnapshot(lastBlockIndex, lastBlockHash, List.copyOf(members.values()),
-                Map.copyOf(excluded), List.copyOf(verdicts), Map.copyOf(restored), halted);
+                Map.copyOf(excluded), List.copyOf(verdicts), Map.copyOf(restored), halted, List.copyOf(removed));
     }
 
     /** 스냅샷을 받으면 명단을 통째로 바꾼다. 스냅샷에 없는 설정상의 멤버는 주소를 찾을 수 있게 남겨 둔다 */
@@ -144,5 +162,16 @@ public class MemberRegistry {
             restored.putAll(snapshot.restored());
         }
         halted = snapshot.halted();
+        removed.clear();
+        if (snapshot.removed() != null) {
+            removed.addAll(snapshot.removed());
+        }
+        // 설정 파일(node.members)에는 남아 있지만 그 뒤 해지된 노드 — 주소를 되살리지 않는다
+        for (String id : removed) {
+            if (snapshot.members().stream().noneMatch(m -> m.id().equals(id))) {
+                members.remove(id);
+                configured.remove(id);
+            }
+        }
     }
 }
