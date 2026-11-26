@@ -208,6 +208,12 @@ python scripts/raft_nodes.py leave D1
 python scripts/raft_nodes.py new-node D1b --team D --port 9005
 ```
 
+노드 로그 (2026-11-26부터): 노드마다 `data/logs/nodes/`에 따로 남고, `--fresh`로 장부를 지워도 남습니다.
+`<ID>.log`(노드 로그 + 5초마다 상태 한 줄 — 역할 · 임기 · 리더 · 블록, 종류별 요청 수 · 가장 느린 요청, DB 연결 사용 · 대기, 힙 · GC),
+`<ID>-access.날짜.log`(받은 요청마다 한 줄, 걸린 ms), `<ID>-threads-시각.txt`(DB 연결 대기가 3초 넘거나 10초 넘게 끝나지 않는 요청이
+있으면 자동으로 남는 스레드 덤프 — 3장 ⑭의 교착을 그 자리에서 잡는 용도). 정해진 시간의 로그만 묶어 보내기:
+`python scripts/collect_logs.py --from 20:05 --to 20:30` → `data/logs/bundles/*.zip`. 부하 테스트 결과 묶음은 `loadtest/README.md` 4장.
+
 리더 층 노드 수는 3 · 5 · 7처럼 홀수가 낫습니다 (4대는 3대와 똑같이 1대 장애만 견디면서 과반이 3대로 늘어남).
 읽기 사본을 늘리는 것이면 리더 층이 아니라 팀원(`--members`)을 늘립니다 — 과반에 들어가지 않아 기록 속도에 영향이 없습니다.
 

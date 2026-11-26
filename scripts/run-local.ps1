@@ -87,13 +87,13 @@ if (Test-Port 6379) {
 }
 
 Write-Host "[2/4] 노드 (리더 층 3대 + 팀마다 팀원 ${Members}대)"
-# 노드는 raft_nodes.py로 띄운다: 장부 · Raft 상태 · 키는 data\raft\<ID>*, 로그는 data\raft\<ID>.log.
+# 노드는 raft_nodes.py로 띄운다: 장부 · Raft 상태 · 키는 data\raft\<ID>*, 로그는 data\logs\nodes\<ID>.log (노드마다 따로).
 # 예전 방식의 장부(data\node1~3)는 쓰지 않는다 — 서명이 없는 예전 장부로 켜면 노드가 켤 때 검사에서 바로 빠진다.
 $nodeArgs = @('scripts\raft_nodes.py', 'start', '--members', "$Members", '--secret', $s.nodeSecret)
 if ($Fresh -or $Mem) { $nodeArgs += '--fresh' }
 $env:PYTHONIOENCODING = 'utf-8'
 & python @nodeArgs | Select-Object -Last ($Members * 3 + 4)
-if ($LASTEXITCODE -ne 0) { throw '노드를 시작하지 못했습니다. data\raft\<ID>.log 를 확인하세요' }
+if ($LASTEXITCODE -ne 0) { throw '노드를 시작하지 못했습니다. data\logs\nodes\<ID>.log · <ID>-console.log 를 확인하세요' }
 foreach ($port in 9001, 9002, 9003) { Wait-Port $port "Node :$port" }
 # 이전 구성을 이어서 켠 경우 노드는 그 구성의 비밀값을 쓴다 — FairChain도 같은 값을 써야 한다
 $nodeSecret = (Get-Content (Join-Path $data 'raft\layout.json') -Raw -Encoding UTF8 | ConvertFrom-Json).secret
@@ -104,7 +104,7 @@ $db = if ($Mem) { "`$env:DB_URL='jdbc:h2:mem:fairchain;MODE=MySQL;DB_CLOSE_DELAY
       else { "`$env:DB_URL='jdbc:h2:file:$data\fairchain;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE'; `$env:DB_USERNAME='sa'; `$env:DB_PASSWORD=''; " }
 Start-Window 'FairChain (:8081)' ("$db java -jar fairchain\build\libs\fairchain-0.0.1-SNAPSHOT.jar " +
     "--fairchain.nodes.api-key=$nodeSecret --fairchain.seed.client-id=example-server --fairchain.seed.api-key=$($s.clientApiKey) " +
-    "--fairchain.seed.operator-login-id=admin --fairchain.seed.operator-password=$($s.fairchainAdminPw)")
+    "--fairchain.seed.operator-login-id=admin --fairchain.seed.operator-password=$($s.fairchainAdminPw) --logging.file.name=data\logs\fairchain.log")
 Wait-Port 8081 'FairChain'
 
 Write-Host '[4/4] 예제서버'
@@ -112,7 +112,7 @@ $queue = if ($NoQueue) { 'false' } else { 'true' }
 $exampleDb = if ($Mem) { "`$env:EXAMPLE_DB_URL='jdbc:h2:mem:example;MODE=MySQL;DB_CLOSE_DELAY=-1'; " } else { '' }
 Start-Window 'Example server (:8080)' ("$exampleDb`$env:FAIRCHAIN_URL='http://localhost:8081'; `$env:FAIRCHAIN_API_KEY='$($s.clientApiKey)'; " +
     "`$env:EXAMPLE_OPERATOR_PASSWORD='$($s.exampleOperatorPw)'; `$env:EXAMPLE_STAFF_PASSWORD='$($s.staffPw)'; " +
-    "`$env:EXAMPLE_QUEUE_ENABLED='$queue'; java -jar example-server\build\libs\example-server-0.0.1-SNAPSHOT.jar")
+    "`$env:EXAMPLE_QUEUE_ENABLED='$queue'; java -jar example-server\build\libs\example-server-0.0.1-SNAPSHOT.jar --logging.file.name=data\logs\example.log")
 Wait-Port 8080 '예제서버'
 
 Write-Host ''
@@ -125,6 +125,7 @@ Write-Host "    FairChain 운영자   admin / $($s.fairchainAdminPw)"
 if ($Mem) { Write-Host '  (-Mem: 시연용 고정 계정 · DB는 메모리 — 끄면 사라집니다. 시연 데이터 채우기: python scripts\seed-seats.py 2 20 30 등, scripts\seed-demo.sh 참고)' }
 else { Write-Host '  (계정은 data\local-secrets.json 에 저장되어 있습니다)' }
 Write-Host '  노드 상태           python scripts\raft_nodes.py status'
+Write-Host '  로그                data\logs\ (FairChain · 예제서버), data\logs\nodes\ (노드마다 따로) · 묶어 보내기: python scripts\collect_logs.py'
 Write-Host '  노드 추가           python scripts\raft_nodes.py new-node D1 --team D --port 9004  → 점검 화면 → 블록체인 노드 → 노드 추가에 http://localhost:9004'
 if (-not $NoBrowser) {
     Start-Process 'http://localhost:8080'

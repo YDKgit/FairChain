@@ -314,7 +314,8 @@ public class NodeService {
                 raft.keys().publicKey(), settings.teamLeader(), team.members(), raft.outReason(), registry.halted());
     }
 
-    private String raftRole() {
+    /** LEADER · FOLLOWER · CANDIDATE · LEARNER · NONE — 메모리에 있는 값만 본다 (상태 로그도 쓴다) */
+    public String raftRole() {
         if (!settings.leaderLayer() || !raft.running()) {
             return "NONE";
         }

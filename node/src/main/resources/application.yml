@@ -1,5 +1,26 @@
 server:
   port: ${NODE_PORT:9001}          # 리더 층 노드 3대: 9001 · 9002 · 9003 (FairChain은 8081)
+  tomcat:
+    # 접근 로그: 받은 요청마다 한 줄 (시각 · 보낸 곳 · 요청 · 상태 · 크기 · 걸린 ms). raft_nodes.py가 켠다 → data/logs/nodes/<ID>-access.날짜.log
+    accesslog:
+      enabled: ${NODE_ACCESS_LOG:false}
+      directory: ${NODE_LOG_DIR:logs}
+      prefix: ${NODE_ID:A1}-access
+      suffix: .log
+      pattern: '%{yyyy-MM-dd HH:mm:ss}t.%{msec_frac}t %a "%r" %s %b %{ms}Tms'
+      buffered: false               # 강제 종료돼도 마지막 줄까지 남게
+      max-days: 14
+logging:
+  # 노드 로그 파일. raft_nodes.py가 data/logs/nodes/<ID>.log 로 준다 (20MB마다 나누고 14일 · 1GB까지 보관). 비우면 콘솔에만
+  file:
+    name: ${NODE_LOG_FILE:}
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 14
+      total-size-cap: 1GB
+  threshold:
+    console: ${NODE_CONSOLE_LOG_LEVEL:TRACE}   # 파일에 쓸 때는 OFF — 같은 줄이 콘솔 파일에 또 쌓이지 않게
 spring:
   datasource:
     # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 확정 블록이 남는다
@@ -33,6 +54,10 @@ node:
   patrol:                           # 순회 검사 (미정사항 12번) — 기본 꺼짐, 시연 설정에서만 켠다
     enabled: ${NODE_PATROL:false}
     blocks-per-sec: ${NODE_PATROL_BLOCKS_PER_SEC:50}
+  diag:
+    health-log-ms: ${NODE_HEALTH_LOG_MS:5000}      # 이 주기로 상태 한 줄 (역할 · 요청 · DB 연결 · 힙 …). 0이면 끔
+    stall-request-ms: ${NODE_STALL_REQUEST_MS:10000}   # 이보다 오래 끝나지 않은 요청이 있으면 멈춤 의심
+    dump-dir: ${NODE_LOG_DIR:}                     # 멈춤 의심 때 스레드 덤프를 남길 폴더 (비우면 로그 한 줄만)
   forward-timeout-ms: ${NODE_FORWARD_TIMEOUT_MS:1800}   # 팔로워 → 리더 전달 제한 (FairChain의 노드 호출 제한 2초보다 짧게)
   commit-timeout-ms: ${NODE_COMMIT_TIMEOUT_MS:1500}     # 리더가 과반 저장을 기다리는 시간
   raft:

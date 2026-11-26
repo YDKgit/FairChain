@@ -25,7 +25,12 @@ PC 1대에 시연 구성 전체(프로세스 9개)를 띄우거나, PC 1대 = �
   python scripts/raft_nodes.py failover --times 10            (PC 1대) 리더 끄기를 되풀이해 새 리더까지 시간 측정
   python scripts/raft_nodes.py watch-failover                 (PC 3대) 리더가 있는 PC에서 리더를 끄면 새 리더까지 측정
 
-노드는 data/raft/<ID> (H2) · <ID>-raft.sqlite (Raft 상태) · <ID>.key (개인키) · <ID>.log 를 쓴다.
+노드는 data/raft/<ID> (H2) · <ID>-raft.sqlite (Raft 상태) · <ID>.key (개인키) 를 쓴다.
+로그는 노드마다 data/logs/nodes/ 에 따로 남는다 (--fresh로 장부를 지워도 남는다):
+  <ID>.log            노드 로그 + 5초마다 상태 한 줄 (역할 · 요청 · DB 연결 · 힙). 20MB마다 나눠 14일 보관
+  <ID>-access.날짜.log 받은 요청마다 한 줄 (걸린 ms 포함)
+  <ID>-threads-시각.txt 멈춘 것 같을 때 자동으로 남는 스레드 덤프
+  <ID>-console.log    켜다가 실패한 경우의 출력 (JVM 오류 등)
 Java는 D:\\Java\\bin\\java.exe → JAVA_HOME → PATH 순서로 찾는다 (--java로 지정 가능).
 """
 import argparse, glob, hashlib, json, os, pathlib, shutil, signal, subprocess, sys, tempfile, time, urllib.error, \
@@ -33,6 +38,7 @@ import argparse, glob, hashlib, json, os, pathlib, shutil, signal, subprocess, s
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data' / 'raft'
+LOGS = ROOT / 'data' / 'logs' / 'nodes'     # 노드 로그 — DATA 밖에 두어 --fresh로 지워지지 않게
 LAYOUT = DATA / 'layout.json'
 SECRET_DEFAULT = 'local-demo-change-me'
 
@@ -164,7 +170,10 @@ def launch(n, layout):
         env['NODE_TEAM'] = n['team']
     if n.get('team_leader'):
         env['NODE_TEAM_LEADER'] = n['team_leader']     # 처음 명단에 없는(나중에 가입하는) 팀의 팀원
-    log = open(DATA / f"{n['id']}.log", 'ab')
+    LOGS.mkdir(parents=True, exist_ok=True)
+    env.update({'NODE_LOG_FILE': str(LOGS / f"{n['id']}.log"), 'NODE_LOG_DIR': str(LOGS), 'NODE_ACCESS_LOG': 'true',
+                'NODE_CONSOLE_LOG_LEVEL': 'OFF'})      # 로그는 파일에만 — 콘솔 파일에는 켜다가 실패한 출력만 남는다
+    log = open(LOGS / f"{n['id']}-console.log", 'ab')
     kwargs = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS} if os.name == 'nt' \
         else {'start_new_session': True}
     p = subprocess.Popen([layout['java'], '-Xmx256m', '-jar', str(jar), '--logging.level.root=WARN',
@@ -199,7 +208,7 @@ def wait_up(nodes, layout, seconds=120):
         pending = [n for n in pending if not is_up(n, layout)]
         time.sleep(0.5)
     for n in pending:
-        print(f"  {n['id']} 이(가) {seconds}초 안에 켜지지 않았다 — {DATA / (n['id'] + '.log')}")
+        print(f"  {n['id']} 이(가) {seconds}초 안에 켜지지 않았다 — {LOGS / (n['id'] + '.log')} · {n['id']}-console.log")
 
 
 def wait_down(n, layout, seconds=15):

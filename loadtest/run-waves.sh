@@ -8,11 +8,12 @@
 # JMeter 한 개로 돌리므로 총 인원은 6천 명 아래로.
 TOTAL=${1:-2000}; WAVE=${2:-200}; GAP=${3:-5}
 cd "${0:a:h}/.."
-OUT=loadtest/results/waves
+OUT=loadtest/results/waves-$(date +%m%d-%H%M%S)   # 실행마다 새 폴더 — 앞 결과를 지우지 않는다
 rm -rf $OUT; mkdir -p $OUT
 CONCERT=${CONCERT:-$(python3 loadtest/new-concert.py)} || exit 1
 RAMP=$(printf "%.0f" $(( TOTAL * 1.0 / WAVE * GAP )))
 echo "공연 #$CONCERT: ${WAVE}명씩 ${GAP}초 간격으로 ${TOTAL}명 (약 ${RAMP}초 동안 진입)"
+python3 loadtest/collect.py begin $OUT "run-waves: ${TOTAL}명 · ${WAVE}명씩 ${GAP}초 간격 · 공연 #$CONCERT"
 JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jusers=$TOTAL -JconcertId=$CONCERT -Jseats=600 -JrampUp=$RAMP \
   -Jpremade=true -JraceUsers=0 -JmacroUsers=0 -JsyncGroup=$WAVE -Jtag=wave \
   -j $OUT/jmeter.log -l $OUT/all.jtl > $OUT/out.txt 2>&1
@@ -24,3 +25,4 @@ t0 = min(c)
 print('초별 대기열 진입:', ' '.join(f'+{t - t0}s:{n}' for t, n in sorted(c.items())))
 PY
 python3 scripts/raft_nodes.py status | tail -4
+python3 loadtest/collect.py end $OUT      # summary.md + 서버 로그 → $OUT.zip (Claude에게 보낼 묶음)

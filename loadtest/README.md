@@ -10,6 +10,7 @@
 | `JMETER-공부.md` | JMeter 개념을 우리 시나리오에 맞춰 풀어 쓴 글 (처음 보는 사람은 이것부터) |
 | `run-slow.sh` · `run-waves.sh` · `run-multi.sh` | 한 명씩 일정 간격 · 묶음으로 나눠서 · 1만 명 동시. 돌릴 때마다 공연을 새로 만들어 서버를 다시 켜지 않아도 된다 (사용법은 각 파일 맨 위) |
 | `new-concert.py` | 테스트용 공연과 좌석을 만든다 |
+| `collect.py` | 실행 하나의 결과 · 서버 로그를 `summary.md`와 zip 하나로 묶는다 (4장 "결과 묶음") |
 
 ## 1. 준비
 
@@ -121,6 +122,39 @@ HTML 보고서의 **Statistics** 표에서 줄 이름(Label)이 위 단계 이�
 
 줄 이름 끝의 꼬리표: `— 성공`, `— 거절 (정상)`, `— 선점 실패 (다시 고름)`, `— 매진이라 포기`, `— 통과`, `— 차단됨 (정상)`.
 `… 준비: 회원가입 + 로그인`, `A-4 예매 후 블록체인 검증 완료까지`는 여러 요청을 묶은 값이라 기다린 시간이 포함된다.
+
+### 결과 묶음 (Claude에게 보내 분석받기)
+
+`run-slow.sh` · `run-waves.sh` · `run-multi.sh`는 실행마다 새 폴더(`loadtest/results/slow-1126-2105` 처럼 이름 뒤에 날짜 · 시각)를 만들고,
+끝나면 **`loadtest/results/<폴더>.zip`** 하나로 묶는다. 이 zip을 그대로 Claude에게 보내면 된다.
+
+| zip 안 | 내용 |
+|---|---|
+| `summary.md` | 단계별 건수 · 실패 · 응답 시간(평균 · 50/95/99% · 최대), 시간대별 처리량, 실패 원인, 노드 상태(시작 전 → 끝난 뒤, 임기가 바뀌었으면 선거가 있었다는 표시), 서버 로그 요약 |
+| `*.jtl` · `jmeter*.log` · `out*.txt` | JMeter 원본 |
+| `server-logs/` | 테스트 시간(앞뒤 30초 포함)의 FairChain · 예제서버 · 노드 로그만 잘라 낸 것 |
+| `run.json` | 시작 시각 · PC · 커밋 · 시작 전 노드 상태 |
+
+jmeter를 손으로 돌릴 때는 앞뒤로 부른다:
+
+```
+python3 loadtest/collect.py begin loadtest/results/run1 "설명"
+jmeter -n -t loadtest/fairticket.jmx -l loadtest/results/run1/all.jtl -j loadtest/results/run1/jmeter.log
+python3 loadtest/collect.py end loadtest/results/run1
+```
+
+노드가 다른 PC에 있으면 그 주소를 알려 준다: `NODES=http://IP:9001,http://IP:9002,http://IP:9003 ./loadtest/run-slow.sh …`
+(비밀값이 기본값과 다르면 `NODE_SECRET=…`도). 그 PC의 노드 로그는 거기서 모은다 — `summary.md` 끝에 시각까지 넣은 명령이 나온다:
+`python scripts/collect_logs.py --from "2026-11-26 21:05:00" --to "2026-11-26 21:12:00"` → `data/logs/bundles/logs-<PC>-<시각>.zip`.
+
+서버 로그가 남는 곳 (`scripts/collect_logs.py`가 여기서 모은다):
+
+| 파일 | 내용 |
+|---|---|
+| `data/logs/fairchain.log` · `example.log` | FairChain · 예제서버 (`run-local.sh` · `run-local.ps1`) |
+| `data/logs/nodes/<ID>.log` | 노드 로그 + 5초마다 상태 한 줄: 역할 · 임기 · 리더 · 블록, 요청 수(기록 · 검증 · Raft · 상태), 가장 느린 요청, 처리 중 요청, DB 연결 사용 · 대기, 힙 · 스레드 · GC · CPU |
+| `data/logs/nodes/<ID>-access.날짜.log` | 노드가 받은 요청마다 한 줄 (시각 · 요청 · 상태 · 걸린 ms) |
+| `data/logs/nodes/<ID>-threads-시각.txt` | 노드가 멈춘 것 같을 때(DB 연결 대기 3초 이상 · 10초 넘게 끝나지 않는 요청) 자동으로 남는 스레드 덤프 |
 
 ## 5. 더 해 볼 것
 

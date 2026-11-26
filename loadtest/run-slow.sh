@@ -9,15 +9,17 @@
 # JMeter 한 개로 돌리므로 인원은 6천 명 아래로. 좌석은 한 줄 50석씩 만든다.
 USERS=${1:-1500}; GAP=${2:-0.1}; SEATS=${SEATS:-1000}
 cd "${0:a:h}/.."
-OUT=loadtest/results/slow
+OUT=loadtest/results/slow-$(date +%m%d-%H%M%S)    # 실행마다 새 폴더 — 앞 결과를 지우지 않는다
 rm -rf $OUT; mkdir -p $OUT
 CONCERT=${CONCERT:-$(python3 loadtest/new-concert.py $(( (SEATS + 49) / 50 )) 50)} || exit 1
 # 회원 한 명은 한 공연에 한 장만 살 수 있다. 기존 공연에서 다시 돌릴 때를 위해 실행마다 다른 회원 묶음을 쓴다 (미리 만든 15,000명 안에서)
 OFFSET=${OFFSET:-$(( ($(date +%s) / 10 % 80) * 100 ))}
 RAMP=$(printf "%.0f" $(( USERS * GAP )))
 echo "공연 #$CONCERT (${SEATS}석): ${USERS}명이 ${GAP}초 간격으로 들어갑니다 (약 ${RAMP}초 동안)"
+python3 loadtest/collect.py begin $OUT "run-slow: ${USERS}명 · ${GAP}초 간격 · ${SEATS}석 · 공연 #$CONCERT"
 JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jusers=$USERS -JconcertId=$CONCERT -Jseats=$SEATS -JrampUp=$RAMP \
   -Jpremade=true -JraceUsers=0 -JmacroUsers=0 -JsyncGroup=1 -JuserOffset=$OFFSET -Jtag=slow \
   -j $OUT/jmeter.log -l $OUT/all.jtl > $OUT/out.txt 2>&1
 python3 loadtest/summarize.py $OUT/all.jtl
 python3 scripts/raft_nodes.py status | tail -4
+python3 loadtest/collect.py end $OUT      # summary.md + 서버 로그 → $OUT.zip (Claude에게 보낼 묶음)
