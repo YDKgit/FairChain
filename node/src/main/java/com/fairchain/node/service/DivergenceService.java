@@ -57,6 +57,8 @@ public class DivergenceService {
 
     private static final Logger log = LoggerFactory.getLogger(DivergenceService.class);
     private static final int PAGE = 200;
+    /** 다른 노드를 판정하기 전 내 체인을 서명까지 처음부터 다시 검사하는 간격 (그 사이에는 새로 붙은 블록만) */
+    private static final long SELF_AUDIT_FULL_EVERY_MILLIS = 60_000;
 
     private final Ledger ledger;
     private final RaftNodeHolder raft;
@@ -144,8 +146,8 @@ public class DivergenceService {
         if (url == null || url.isBlank()) {
             return new ReportAckDto(false, null);
         }
-        // 판정하는 쪽의 체인부터 맞아야 한다 — 서명까지 검사
-        if (!ledger.audit(keys::signedByMe)) {
+        // 판정하는 쪽의 체인부터 맞아야 한다 — 서명까지 검사. 전체는 1분에 한 번, 그 사이에는 새로 붙은 블록만 (Ledger.auditSigned)
+        if (!ledger.auditSigned(keys::signedByMe, SELF_AUDIT_FULL_EVERY_MILLIS)) {
             raft.chainInvalid("판정 전 내 체인 검사 실패");
             return new ReportAckDto(false, ReasonCode.CHAIN_INVALID);
         }

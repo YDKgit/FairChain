@@ -40,6 +40,11 @@ public class Ledger {
     private String verifiedHash = GENESIS;
     /** 체인이 깨진 것이 확인되면 true (다음 전체 검사에서 다시 판정) */
     private volatile boolean chainBroken = false;
+    /** auditSigned: 서명까지 전체 검사한 시각, 서명까지 확인한 마지막 블록 */
+    private final Object signedLock = new Object();
+    private long signedAuditAt = 0;
+    private long signedIndex = 0;
+    private String signedHash = GENESIS;
 
     public Ledger(BlockRepository repo) {
         this.repo = repo;
@@ -65,9 +70,20 @@ public class Ledger {
 
     // ------------------------------------------------------------------ 읽기
 
+    /** 마지막 블록 (번호 · 해시). 기본 키로 두 번 찾는다 — 장부 길이와 상관없이 빠르다 (BlockRepository.maxBlockIndex 참고) */
     public Head head() {
-        return repo.findTopByOrderByBlockIndexDesc().map(b -> new Head(b.blockIndex, b.blockHash))
-                .orElse(new Head(0, GENESIS));
+        for (int attempt = 0; attempt < 3; attempt++) {
+            Long last = repo.maxBlockIndex();
+            if (last == null) {
+                return new Head(0, GENESIS);
+            }
+            Optional<Block> b = repo.findById(last);
+            if (b.isPresent()) {
+                return new Head(b.get().blockIndex, b.get().blockHash);
+            }
+            // 두 조회 사이에 복구가 뒤쪽을 지웠다 — 다시 읽는다
+        }
+        return new Head(0, GENESIS);
     }
 
     public Optional<Block> block(long index) {
@@ -140,6 +156,7 @@ public class Ledger {
                 verifiedIndex = 0;
                 verifiedHash = GENESIS;
             }
+            signedAuditAt = 0;          // 다음 판정 검사는 처음부터 (auditSigned)
         }
     }
 
@@ -167,6 +184,42 @@ public class Ledger {
             }
         }
         return scan.valid();
+    }
+
+    /**
+     * 판정용 자기 검사 (해시 연결 + 블록마다 서명). 체인 전체는 fullEveryMillis에 한 번만 다시 읽고, 그 사이에는
+     * 지난번에 서명까지 확인한 마지막 블록이 그대로인지 본 뒤 그 뒤에 붙은 블록만 검사한다.
+     * 신고가 잇따라 와도 신고마다 장부 전체의 서명을 다시 확인하지 않게 한다 (블록 1만 개에서 한 번에 25~34초 걸렸다).
+     * 오래된 블록의 조작은 전체 검사 · 켤 때 검사 · 순회 검사 · 원장 상태 조회가 잡는다.
+     */
+    public boolean auditSigned(Predicate<BlockProposalDto> signatureOk, long fullEveryMillis) {
+        synchronized (signedLock) {
+            long now = System.currentTimeMillis();
+            boolean recent = signedAuditAt > 0 && now - signedAuditAt < fullEveryMillis;
+            boolean junctionSame = signedIndex == 0
+                    || repo.findById(signedIndex).map(b -> signedHash.equals(b.blockHash)).orElse(false);
+            if (!recent || !junctionSame) {
+                boolean ok = audit(signatureOk);
+                if (ok) {
+                    synchronized (lock) {
+                        signedIndex = verifiedIndex;
+                        signedHash = verifiedHash;
+                    }
+                    signedAuditAt = now;
+                }
+                return ok;
+            }
+            ChainScan scan = scan(signedIndex + 1, signedHash, signatureOk);
+            if (!scan.valid()) {
+                synchronized (lock) {
+                    chainBroken = true;
+                }
+                return false;
+            }
+            signedIndex = scan.lastIndex();
+            signedHash = scan.lastHash();
+            return !chainBroken;
+        }
     }
 
     /**
