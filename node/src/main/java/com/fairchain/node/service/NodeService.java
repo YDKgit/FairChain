@@ -232,9 +232,10 @@ public class NodeService {
         if (dto == null || !Ledger.validRecord(dto.recordKey(), dto.recordHash(), dto.version())) {
             return new BlockVerifyResultDto(false, null, null, last);
         }
+        // 답하는 블록 하나만 검사한다 (해시 · 앞뒤 연결). 체인 전체를 조회마다 다시 읽지 않는다 — Ledger.blockIntact 참고
         return ledger.latestFor(dto.recordKey())
                 .map(b -> new BlockVerifyResultDto(
-                        ledger.integrity(b) && b.version.equals(dto.version()) && b.recordHash.equals(dto.recordHash()),
+                        ledger.blockIntact(b) && b.version.equals(dto.version()) && b.recordHash.equals(dto.recordHash()),
                         b.version, b.recordHash, last))
                 .orElse(new BlockVerifyResultDto(false, null, null, last));
     }
@@ -244,7 +245,6 @@ public class NodeService {
             throw new IllegalArgumentException("Missing records");
         }
         requireIn();
-        boolean chainValid = ledger.audit();      // 요청 한 번에 한 번만 검사
         long last = ledger.head().index();
         return new BlockBatchVerifyResponseDto(dto.records().stream().map(r -> {
             if (r == null || r.blockIndex() == null) {
@@ -254,7 +254,8 @@ public class NodeService {
             boolean matched = block.map(b -> Objects.equals(b.recordKey, r.recordKey())
                     && Objects.equals(b.version, r.version())
                     && Objects.equals(b.recordHash, r.recordHash())).orElse(false);
-            return new BlockVerifyItemResultDto(r.blockIndex(), matched, block.isPresent() && chainValid);
+            // 묻는 블록마다 그 블록만 검사한다 (전에는 요청마다 체인 전체를 한 번 읽었다)
+            return new BlockVerifyItemResultDto(r.blockIndex(), matched, block.map(ledger::blockIntact).orElse(false));
         }).toList(), last);
     }
 
@@ -264,7 +265,7 @@ public class NodeService {
         }
         requireIn();
         return ledger.latestFor(recordKey)
-                .map(b -> new BlockProofDto(ledger.integrity(b), b.blockIndex, b.version, b.recordHash, b.blockHash))
+                .map(b -> new BlockProofDto(ledger.blockIntact(b), b.blockIndex, b.version, b.recordHash, b.blockHash))
                 .orElse(new BlockProofDto(false, null, null, null, null));
     }
 

@@ -7,6 +7,9 @@ import com.fairchain.nodeapi.NodeAdminApi;
 import com.fairchain.nodeapi.NodeAuditApi;
 import com.fairchain.nodeapi.NodeConsensusApi;
 import com.fairchain.nodeapi.NodeHeaders;
+import com.fairchain.nodeapi.NodeVerificationApi;
+import com.fairchain.nodeapi.dto.BlockBatchVerifyRequestDto;
+import com.fairchain.nodeapi.dto.BlockBatchVerifyResponseDto;
 import com.fairchain.nodeapi.dto.BlockDto;
 import com.fairchain.nodeapi.dto.BlockProposalDto;
 import com.fairchain.nodeapi.dto.BlockRecordDto;
@@ -15,6 +18,7 @@ import com.fairchain.nodeapi.dto.MemberJoinDto;
 import com.fairchain.nodeapi.dto.MembershipResultDto;
 import com.fairchain.nodeapi.dto.BlockResultDto;
 import com.fairchain.nodeapi.dto.BlockVerifyDto;
+import com.fairchain.nodeapi.dto.BlockVerifyItemDto;
 import com.fairchain.nodeapi.dto.BlockVerifyResultDto;
 import com.fairchain.nodeapi.dto.NodeLedgerStatusDto;
 import com.fairchain.nodeapi.dto.NodeStatusDto;
@@ -39,6 +43,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -540,6 +548,109 @@ class NodeClusterTest {
         assertTrue(verified(late, 21, 1));
         assertEquals(22L, submitUntilAccepted(22, 1, 5_000));
         await("3대 모두 22번 블록", () -> sameHead(22, 0, 1, 2));
+    }
+
+    // ------------------------------------------------------------------ 조회가 몰릴 때 (2026-11-25 부하 테스트에서 A1이 30초씩 멈춤)
+
+    /**
+     * 원장 상태 조회(체인 전체 검사)가 한꺼번에 몰리는 동안에도 리더는 블록을 계속 붙인다.
+     * 전에는 요청이 응답을 다 보낼 때까지 DB 연결을 쥐고 있었다 (open-in-view). 연결 10개를 쥔 요청들이 장부 잠금을 기다리고,
+     * 블록을 붙이는 스레드는 장부 잠금을 쥔 채 DB 연결을 기다려 서로 멈췄다 — DB 연결 대기 시간(기본 30초)이 지나야 풀렸다.
+     * 같은 테스트가 H2의 결과 재사용(OPTIMIZE_REUSE_RESULTS)도 잡는다: 조회와 커밋이 겹치면 옛 "마지막 블록"이 연결에 남아
+     * 리더가 자기 블록을 건너뛰고 다음 기록을 BEHIND로 거절했다 (7번에 3번꼴).
+     */
+    @Test
+    void manyLedgerChecksAtOnceDoNotStopTheLeaderFromWriting() {
+        // 다시 멈추게 되면 30초가 아니라 3초 만에 드러나게
+        restartClusterWith("--spring.datasource.hikari.connection-timeout=3000");
+        int leader = awaitLeader();
+        for (int t = 1; t <= 20; t++) {
+            assertEquals((long) t, submit(leader, t, 1).blockIndex());
+        }
+
+        ExecutorService readers = Executors.newFixedThreadPool(24);
+        AtomicBoolean stop = new AtomicBoolean();
+        AtomicInteger checks = new AtomicInteger();
+        long slowest = 0;
+        try {
+            for (int i = 0; i < 24; i++) {
+                readers.submit(() -> {
+                    while (!stop.get()) {
+                        try {
+                            if (ledger(leader).chainValid()) {
+                                checks.incrementAndGet();
+                            }
+                        } catch (Exception ignored) {
+                            // 멈춘 노드는 답하지 않는다 — 아래 기록 확인에서 드러난다
+                        }
+                    }
+                });
+            }
+            for (int t = 21; t <= 80; t++) {
+                long begin = System.currentTimeMillis();
+                BlockResultDto r = submit(leader, t, 1);
+                slowest = Math.max(slowest, System.currentTimeMillis() - begin);
+                assertTrue(r.accepted(), "블록 #" + t + ": 조회가 몰리는 동안에도 기록된다 (" + r.reason() + ")");
+            }
+        } finally {
+            stop.set(true);
+            readers.shutdownNow();
+        }
+        System.out.println("[측정] 원장 상태 조회 24개가 계속 도는 동안 블록 60개 기록 — 가장 느린 기록 " + slowest
+                + " ms · 조회 " + checks.get() + "번");
+        assertTrue(checks.get() > 0, "조회도 답을 받았다");
+        assertEquals("LEADER", status(leader).raftRole(), "리더가 멈추지 않았으므로 리더가 바뀌지 않는다");
+        await("3대 모두 80번 블록", () -> sameHead(80, 0, 1, 2));
+    }
+
+    private BlockBatchVerifyResponseDto verifyBatch(int node, BlockVerifyItemDto... items) {
+        return http.post().uri(url(node) + NodeVerificationApi.VERIFY_BATCH)
+                .body(new BlockBatchVerifyRequestDto(List.of(items))).retrieve().body(BlockBatchVerifyResponseDto.class);
+    }
+
+    /**
+     * 검증 조회는 답하는 블록 하나만 본다 (블록 해시 재계산 · 앞 블록 · 뒤 블록과의 연결) — 조회마다 체인 전체를 읽지 않는다.
+     * 그 블록이 고쳐져 있으면 고친 값으로 물어도 통과하지 않고, 그때 체인 전체를 검사해 손상을 확정한다.
+     * 다른 블록의 조작은 원장 상태 조회 · 켤 때 검사 · 순회 검사가 잡는다.
+     */
+    @Test
+    void aCheckLooksOnlyAtTheBlockItAnswersWith() {
+        int leader = awaitLeader();
+        for (int t = 1; t <= 5; t++) {
+            assertEquals((long) t, submit(leader, t, 1).blockIndex());
+        }
+        await("3대 모두 5번 블록", () -> sameHead(5, 0, 1, 2));
+        String forged = "e".repeat(64);
+
+        // 기록 키로 최신 블록을 찾는 인덱스 — 장부가 길어져도 검증 · 블록 붙이기가 장부 전체를 훑지 않는다
+        JdbcTemplate db = new JdbcTemplate(nodes[leader].getBean(DataSource.class));
+        assertTrue(db.queryForObject("select count(*) from information_schema.index_columns "
+                + "where table_name = 'BLOCK' and column_name = 'RECORD_KEY'", Integer.class) > 0);
+
+        // 노드 1: 2번 블록의 지문만 고친다 (블록 해시는 그대로) — 돌고 있는 노드의 H2
+        int first = (leader + 1) % 3;
+        new JdbcTemplate(nodes[first].getBean(DataSource.class))
+                .update("update block set record_hash = ? where block_index = 2", forged);
+        BlockBatchVerifyResponseDto answer = verifyBatch(first,
+                new BlockVerifyItemDto(4L, key(4), 1L, RECORD), new BlockVerifyItemDto(2L, key(2), 1L, forged));
+        assertTrue(answer.results().get(0).matched() && answer.results().get(0).confirmed(),
+                "4번 블록을 묻는 조회는 4번 블록만 본다");
+        assertTrue(answer.results().get(1).matched(), "고친 값으로 물었으므로 저장된 값과는 같다");
+        assertFalse(answer.results().get(1).confirmed(), "블록 해시가 내용과 맞지 않아 통과하지 않는다");
+        assertFalse(verified(first, 4, 1), "손상을 확인한 뒤에는 어떤 조회도 통과시키지 않는다");
+        assertFalse(ledger(first).chainValid());
+        assertEquals("NONE", status(first).raftRole(), "원장 상태 조회에서 체인 손상으로 빠진다");
+
+        // 노드 2: 지문을 고치고 그 블록의 해시까지 다시 계산해 맞춘다 — 뒤 블록이 가리키는 해시와 어긋난다
+        int second = (leader + 2) % 3;
+        JdbcTemplate other = new JdbcTemplate(nodes[second].getBean(DataSource.class));
+        String previous = other.queryForObject("select prev_block_hash from block where block_index = 3", String.class);
+        String rehashed = new Sha256RecordHasher().hash("3", previous, key(3), "1", forged);
+        other.update("update block set record_hash = ?, block_hash = ? where block_index = 3", forged, rehashed);
+        assertTrue(verified(second, 5, 1), "5번 블록을 묻는 조회는 5번 블록만 본다");
+        assertFalse(http.post().uri(url(second) + BlockRecordApi.VERIFY).body(new BlockVerifyDto(key(3), 1L, forged))
+                .retrieve().body(BlockVerifyResultDto.class).valid(), "뒤 블록과 이어지지 않아 통과하지 않는다");
+        assertFalse(ledger(second).chainValid());
     }
 
     @Test

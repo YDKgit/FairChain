@@ -169,20 +169,36 @@ public class Ledger {
         return scan.valid();
     }
 
-    /** 그 블록까지 포함해 체인 전체가 정상인지. 마지막 고리만 보면 오래된 블록의 조작을 놓친다 */
-    public boolean integrity(Block target) {
-        if (target == null || target.blockIndex == null || target.blockIndex < 1) {
+    /**
+     * 조회용 검사: 이 블록 하나가 저장된 그대로 맞는지 — 블록 해시를 다시 계산하고, 앞 블록 · 뒤 블록과 이어지는지 본다.
+     * 조회마다 체인 전체를 다시 읽지 않는다. 그렇게 하면 장부가 길수록 조회가 느려지고, 검증 요청이 몰릴 때 DB 연결을 다 쓴다
+     * (2026-11-25 부하 테스트). 체인 전체는 켤 때(서명 포함) · 원장 상태 조회 · 순회 검사가 보고, 블록을 붙일 때는 새로 붙는
+     * 구간을 본다 — etcd도 무결성 검사를 켤 때와 주기적으로 하고, 요청마다 하지 않는다.
+     * 어긋난 것이 보이면 전체 검사로 확정한다. 깨졌으면 chainBroken이 서고, 이 노드는 다음 블록을 붙이지 못해 리더 층에서 빠진다.
+     */
+    public boolean blockIntact(Block b) {
+        if (b == null || b.blockIndex == null || b.blockIndex < 1 || chainBroken) {
             return false;
         }
-        ChainScan scan = scan(1, GENESIS, null);
-        synchronized (lock) {
-            chainBroken = !scan.valid();
-            if (scan.valid()) {
-                verifiedIndex = scan.lastIndex();
-                verifiedHash = scan.lastHash();
-            }
+        if (linked(b)) {
+            return true;
         }
-        return scan.valid() && scan.lastIndex() >= target.blockIndex;
+        // 드문 경우: 정말 깨졌거나, 복구가 장부를 바꾸는 사이에 읽었다. 전체를 다시 읽어 판정하고, 정상이면 그 블록을 새로 읽어 본다
+        return audit() && repo.findById(b.blockIndex).filter(x -> sameBlock(x, toProposal(b))).filter(this::linked).isPresent();
+    }
+
+    /** 블록 해시가 내용과 맞고, 앞 블록의 해시 · 뒤 블록의 prevBlockHash와 이어지는지. 뒤 블록이 없으면 마지막 블록이어야 한다 */
+    private boolean linked(Block b) {
+        if (!wellFormed(toProposal(b))) {
+            return false;
+        }
+        String previous = b.blockIndex == 1 ? GENESIS : repo.findById(b.blockIndex - 1).map(x -> x.blockHash).orElse(null);
+        if (!b.prevBlockHash.equals(previous)) {
+            return false;
+        }
+        // 뒤 블록이 없는데 마지막 번호가 더 뒤라면 중간이 빠진 것이다 (+1은 방금 붙은 블록 — 읽는 사이에 붙을 수 있다)
+        return repo.findById(b.blockIndex + 1).map(next -> b.blockHash.equals(next.prevBlockHash))
+                .orElseGet(() -> head().index() <= b.blockIndex + 1);
     }
 
     /** 블록을 붙이기 전 검사. 이미 확인한 구간 뒤쪽만 읽는다. lock을 잡고 호출 */

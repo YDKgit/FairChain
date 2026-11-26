@@ -5,9 +5,17 @@ spring:
     # WRITE_DELAY=0: 커밋 즉시 디스크에 기록 — 강제 종료돼도 확정 블록이 남는다
     url: jdbc:h2:file:${NODE_DB:./data/node1};WRITE_DELAY=0;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
+    hikari:
+      # H2는 같은 연결에서 같은 조회를 되풀이하면 "그사이 데이터가 안 바뀌었다"고 보고 앞 결과를 다시 쓴다 (OPTIMIZE_REUSE_RESULTS).
+      # 다른 연결의 커밋과 겹치면 방금 커밋된 블록이 빠진 옛 결과가 그 연결에 남는다 — 블록을 붙이는 스레드가 옛 "마지막 블록"을
+      # 읽고 자기 블록을 건너뛰어, 다른 노드에서 다시 받을 때까지 기록을 거절(BEHIND)한다. 조회가 몰리는 테스트에서 확인. 끈다
+      connection-init-sql: SET OPTIMIZE_REUSE_RESULTS 0
   jpa:
     hibernate:
       ddl-auto: update
+    # 끈다: 켜 두면(기본값) 요청이 응답을 다 보낼 때까지 DB 연결을 쥐고 있다. 연결(10개)을 쥔 조회들이 장부 잠금을 기다리고,
+    # 블록을 붙이는 스레드는 장부 잠금을 쥔 채 연결을 기다려 노드가 30초씩 멈췄다 (2026-11-25 부하 테스트, A1)
+    open-in-view: false
 node:
   id: ${NODE_ID:A1}                 # 노드 ID (영문 · 숫자 · '-' · '_'). 리더 층 Raft 멤버 이름
   team: ${NODE_TEAM:}               # 팀(기관) ID. 비우면 ID 끝 숫자를 뗀 값 (A1 → A)

@@ -4,8 +4,9 @@ import java.time.LocalDateTime;
 /**
  * 확정 블록. blockHash = SHA-256(index ‖ prevHash ‖ recordKey ‖ version ‖ recordHash) — 계산식은 바꾸지 않는다.
  * 서명은 블록 옆 칸(signerId · signature)에 따로 둔다 (미정사항 8번): 블록과 한 행이라 블록만 있고 서명이 없는 상태가 생기지 않는다.
+ * 인덱스: 기록 키의 최신 블록을 찾는 조회(검증 · 블록을 붙일 때 버전 확인)가 장부 전체를 훑지 않게 한다.
  */
-@Entity @Table(name="Block")
+@Entity @Table(name="Block", indexes=@Index(name="idx_block_record_key", columnList="recordKey, blockIndex"))
 public class Block {
  @Id @Column(name="blockIndex") public Long blockIndex;
  @Column(nullable=false,length=64) public String prevBlockHash;
