@@ -39,6 +39,7 @@ jmeter -n -t loadtest/fairticket.jmx -l loadtest/results/run1.jtl -e -o loadtest
 | `users` | 100 | A: 예매 오픈에 몰리는 사람 수 |
 | `rampUp` | 5 | A: 준비 단계의 가입과 A의 로그인을 이 초 동안 나눠서 한다 (대기열 진입은 모두 로그인한 뒤 동시에, 최대 10분 기다림) |
 | `queueWait` | 0 | A · B: 대기열에서 입장 허용을 기다리는 최대 초. 0이면 입장할 때까지 기다린다 (입장해야 재배정 명단에 오른다). 요청이 30번 연달아 실패하면 그 사람은 포기한다 |
+| `pollMs` | 0 | A · B: 순번 확인 간격(ms)을 고정한다. 0이면 실제 화면처럼 **서버가 알려 준 간격**(`nextPollMs` — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다. `-JpollMs=1000`은 간격을 지키지 않는 매크로 흉내 (예제서버가 FairChain에 가지 않고 직전 답을 돌려주는지 볼 때) |
 | `tag` · `enterAt` | (없음) · 0 | JMeter를 여러 개 띄울 때: `tag`는 회원 아이디에 붙는 구분 글자(프로세스마다 다르게), `enterAt`은 모두가 대기열에 들어갈 시각(ms). macOS는 프로세스 하나가 스레드를 약 6천 개까지만 만들 수 있어 6천 명을 넘기려면 나눠 띄운다 |
 | `premade` · `userOffset` | false · 0 | `premade=true`면 가입 단계를 건너뛰고 서버가 켜질 때 만들어 둔 회원을 쓴다 (`EXAMPLE_LOAD_MEMBERS=15000 ./scripts/run-local.sh --mem`). 수천 명일 때 준비 시간이 몇 분에서 몇 초로 준다. `userOffset`은 JMeter를 여러 개 띄울 때 회원 번호의 시작 위치 |
 | `seats` | 150 | 준비: 예매 가능한 좌석이 이보다 적으면 모자란 만큼 등록 |
@@ -68,13 +69,14 @@ jmeter -n -t loadtest/fairticket.jmx -l loadtest/results/run1.jtl -e -o loadtest
 |---|---|---|
 | A-0 | `POST /api/members/login` | 준비 단계에서 미리 만든 회원으로 로그인 (가입은 준비 단계 `준비: A 회원 미리 만들기`가 한다) |
 | A-1 | `POST /api/queue/{공연}` | **모든 사람이 이 자리에 모일 때까지 기다렸다가 동시에** 보낸다 |
-| A-1 | `GET /api/queue/{공연}/status` | 1초마다, 상태가 `ADMITTED`가 될 때까지 (`queueWait`를 주지 않으면 제한 없음) |
+| A-1 | `GET /api/queue/{공연}/status` | 서버가 알려 준 간격(`nextPollMs`)마다, 상태가 `ADMITTED`가 될 때까지 (`queueWait`를 주지 않으면 제한 없음) |
 | A-2 | `GET /api/concerts/{공연}/seats` | 0.3~1초 생각한 뒤 예매 가능한 좌석 중 하나를 무작위로 고른다 |
 | A-3 | `POST /api/reservations` | 다른 사람이 먼저 잡았으면 A-2로 돌아가 다시 고른다 (최대 5번) |
 | A-4 | `GET /api/tickets/{티켓}` | 0.5초마다, `verificationStatus`가 `VERIFIED`가 될 때까지 (최대 60초) |
 
 **볼 것**
-- `A-1 대기 순번 확인` 횟수 ÷ 사람 수 = 한 사람이 대기한 평균 초. FairChain이 1초에 100명씩 들여보내므로(`fairchain.queue.admit-per-second`, 2026-11-22에 10 → 100) 6,000명이면 마지막 사람이 약 60초 기다린다
+- FairChain이 1초에 100명씩 들여보내므로(`fairchain.queue.admit-per-second`, 2026-11-22에 10 → 100) 6,000명이면 마지막 사람이 약 60초 기다린다
+- `A-1 대기 순번 확인` 횟수 — 순번 확인 간격은 서버가 순번에 따라 정한다 (2초 안에 들어갈 순번은 1초, 10초 안은 2초, 그 뒤는 남은 대기의 1/5로 3~15초). 2026-11-26 전에는 모두 1초마다 물어서, 1만 5천 명이면 초당 1만 5천 건이 예제서버 → FairChain → DB로 몰려 휴대폰 화면까지 멈췄다. 지금은 같은 인원에서 초당 약 2천 건이다
 - `A-3 예매`의 응답 시간 — 예매는 FairChain에 판매 기록을 보내고 바로 답한다 (블록 확정을 기다리지 않음)
 - `A-4 예매 후 블록체인 검증 완료까지` — 예매 직후부터 노드 합의가 끝나 티켓이 검증될 때까지. **0.5초 간격으로 확인하므로 0.5초보다 작은 차이는 보이지 않는다**
 - `A-3 예매 — 선점 실패 (다시 고름)` 줄이 생기면 두 사람이 같은 좌석을 고른 것이다. 실패가 아니라 정상 동작이다

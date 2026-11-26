@@ -318,7 +318,8 @@ if (!empty) { prev.setSuccessful(false); prev.setResponseMessage(&apos;예매 �
             <stringProp name="parameters"></stringProp>
             <stringProp name="filename"></stringProp>
             <stringProp name="cacheKey">true</stringProp>
-            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
+            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;qnext&apos;, &apos;1000&apos;); vars.put(&apos;qwaited&apos;, &apos;0&apos;)
+vars.put(&apos;qstart&apos;, System.currentTimeMillis() as String); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
 vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos;&apos;); vars.put(&apos;vtry&apos;, &apos;0&apos;); vars.put(&apos;vstate&apos;, &apos;NONE&apos;)</stringProp>
           </JSR223PreProcessor>
           <hashTree/>
@@ -329,9 +330,20 @@ vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos
             <stringProp name="cacheKey">true</stringProp>
             <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = &apos;NONE&apos;
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+def next = null
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    state = body.state ?: &apos;NONE&apos;
+    next = body.nextPollMs
+} catch (e) { }
 vars.put(&apos;qstate&apos;, state)
+// 다음 순번 확인까지 쉬는 시간: 실제 화면처럼 서버가 알려 준 간격(nextPollMs — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다.
+// -JpollMs=1000 처럼 주면 그 간격으로 고정한다 (간격을 지키지 않는 매크로 흉내 — 예제서버가 직전 답을 돌려주는지 볼 때)
+def fixed = (props.getProperty(&apos;pollMs&apos;, &apos;0&apos;) as int)
+vars.put(&apos;qnext&apos;, (fixed &gt; 0 ? fixed : (next ?: 1000)) as String)
 vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
+// 줄에 선 뒤 지난 초 (-JqueueWait 비교용 — 확인 간격이 순번마다 달라 횟수로는 셀 수 없다)
+vars.put(&apos;qwaited&apos;, ((System.currentTimeMillis() - ((vars.get(&apos;qstart&apos;) ?: &apos;0&apos;) as long)) / 1000) as long as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
 def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
@@ -340,7 +352,7 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
           <hashTree/>
         </hashTree>
         <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="B-1 입장 허용까지 대기">
-          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp>
+          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qwaited} &lt; ${QWAIT}),)}</stringProp>
         </WhileController>
         <hashTree>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="B-1 대기 순번 확인">
@@ -354,8 +366,8 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
             </elementProp>
           </HTTPSamplerProxy>
           <hashTree>
-            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true">
-              <stringProp name="ConstantTimer.delay">1000</stringProp>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="${qnext}ms 쉬기" enabled="true">
+              <stringProp name="ConstantTimer.delay">${qnext}</stringProp>
             </ConstantTimer>
             <hashTree/>
             <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
@@ -365,9 +377,20 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
               <stringProp name="cacheKey">true</stringProp>
               <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = &apos;NONE&apos;
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+def next = null
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    state = body.state ?: &apos;NONE&apos;
+    next = body.nextPollMs
+} catch (e) { }
 vars.put(&apos;qstate&apos;, state)
+// 다음 순번 확인까지 쉬는 시간: 실제 화면처럼 서버가 알려 준 간격(nextPollMs — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다.
+// -JpollMs=1000 처럼 주면 그 간격으로 고정한다 (간격을 지키지 않는 매크로 흉내 — 예제서버가 직전 답을 돌려주는지 볼 때)
+def fixed = (props.getProperty(&apos;pollMs&apos;, &apos;0&apos;) as int)
+vars.put(&apos;qnext&apos;, (fixed &gt; 0 ? fixed : (next ?: 1000)) as String)
 vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
+// 줄에 선 뒤 지난 초 (-JqueueWait 비교용 — 확인 간격이 순번마다 달라 횟수로는 셀 수 없다)
+vars.put(&apos;qwaited&apos;, ((System.currentTimeMillis() - ((vars.get(&apos;qstart&apos;) ?: &apos;0&apos;) as long)) / 1000) as long as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
 def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
@@ -513,7 +536,8 @@ if (left &gt; 0) Thread.sleep(left)</stringProp>
             <stringProp name="parameters"></stringProp>
             <stringProp name="filename"></stringProp>
             <stringProp name="cacheKey">true</stringProp>
-            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
+            <stringProp name="script">vars.put(&apos;qtry&apos;, &apos;0&apos;); vars.put(&apos;qfail&apos;, &apos;0&apos;); vars.put(&apos;qstate&apos;, &apos;NONE&apos;); vars.put(&apos;qnext&apos;, &apos;1000&apos;); vars.put(&apos;qwaited&apos;, &apos;0&apos;)
+vars.put(&apos;qstart&apos;, System.currentTimeMillis() as String); vars.put(&apos;rtry&apos;, &apos;0&apos;); vars.put(&apos;reserved&apos;, &apos;false&apos;)
 vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos;&apos;); vars.put(&apos;vtry&apos;, &apos;0&apos;); vars.put(&apos;vstate&apos;, &apos;NONE&apos;)</stringProp>
           </JSR223PreProcessor>
           <hashTree/>
@@ -524,9 +548,20 @@ vars.put(&apos;seatId&apos;, &apos;&apos;); vars.put(&apos;ticketId&apos;, &apos
             <stringProp name="cacheKey">true</stringProp>
             <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = &apos;NONE&apos;
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+def next = null
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    state = body.state ?: &apos;NONE&apos;
+    next = body.nextPollMs
+} catch (e) { }
 vars.put(&apos;qstate&apos;, state)
+// 다음 순번 확인까지 쉬는 시간: 실제 화면처럼 서버가 알려 준 간격(nextPollMs — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다.
+// -JpollMs=1000 처럼 주면 그 간격으로 고정한다 (간격을 지키지 않는 매크로 흉내 — 예제서버가 직전 답을 돌려주는지 볼 때)
+def fixed = (props.getProperty(&apos;pollMs&apos;, &apos;0&apos;) as int)
+vars.put(&apos;qnext&apos;, (fixed &gt; 0 ? fixed : (next ?: 1000)) as String)
 vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
+// 줄에 선 뒤 지난 초 (-JqueueWait 비교용 — 확인 간격이 순번마다 달라 횟수로는 셀 수 없다)
+vars.put(&apos;qwaited&apos;, ((System.currentTimeMillis() - ((vars.get(&apos;qstart&apos;) ?: &apos;0&apos;) as long)) / 1000) as long as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
 def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)
@@ -535,7 +570,7 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
           <hashTree/>
         </hashTree>
         <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="A-1 입장 허용까지 대기">
-          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qtry} &lt; ${QWAIT}),)}</stringProp>
+          <stringProp name="WhileController.condition">${__jexl3(&quot;${qstate}&quot; != &quot;ADMITTED&quot; &amp;&amp; ${qfail} &lt; 30 &amp;&amp; (${QWAIT} == 0 || ${qwaited} &lt; ${QWAIT}),)}</stringProp>
         </WhileController>
         <hashTree>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-1 대기 순번 확인">
@@ -549,8 +584,8 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
             </elementProp>
           </HTTPSamplerProxy>
           <hashTree>
-            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1000ms 쉬기" enabled="true">
-              <stringProp name="ConstantTimer.delay">1000</stringProp>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="${qnext}ms 쉬기" enabled="true">
+              <stringProp name="ConstantTimer.delay">${qnext}</stringProp>
             </ConstantTimer>
             <hashTree/>
             <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="대기열 상태 읽기" enabled="true">
@@ -560,9 +595,20 @@ vars.put(&apos;qfail&apos;, inLine ? &apos;0&apos; : ((vars.get(&apos;qfail&apos
               <stringProp name="cacheKey">true</stringProp>
               <stringProp name="script">// 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = &apos;NONE&apos;
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: &apos;NONE&apos; } catch (e) { }
+def next = null
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    state = body.state ?: &apos;NONE&apos;
+    next = body.nextPollMs
+} catch (e) { }
 vars.put(&apos;qstate&apos;, state)
+// 다음 순번 확인까지 쉬는 시간: 실제 화면처럼 서버가 알려 준 간격(nextPollMs — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다.
+// -JpollMs=1000 처럼 주면 그 간격으로 고정한다 (간격을 지키지 않는 매크로 흉내 — 예제서버가 직전 답을 돌려주는지 볼 때)
+def fixed = (props.getProperty(&apos;pollMs&apos;, &apos;0&apos;) as int)
+vars.put(&apos;qnext&apos;, (fixed &gt; 0 ? fixed : (next ?: 1000)) as String)
 vars.put(&apos;qtry&apos;, ((vars.get(&apos;qtry&apos;) ?: &apos;0&apos;) as int) + 1 as String)
+// 줄에 선 뒤 지난 초 (-JqueueWait 비교용 — 확인 간격이 순번마다 달라 횟수로는 셀 수 없다)
+vars.put(&apos;qwaited&apos;, ((System.currentTimeMillis() - ((vars.get(&apos;qstart&apos;) ?: &apos;0&apos;) as long)) / 1000) as long as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
 def inLine = prev.isSuccessful() &amp;&amp; (state == &apos;WAITING&apos; || state == &apos;ADMITTED&apos;)

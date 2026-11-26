@@ -45,8 +45,9 @@ public class FC_QueueController implements QueueApi {
     public SseEmitter subscribe(Long userId, Long eventId) {
         eventFinder.checkOwner(ClientContext.clientId(), eventId);
         SseEmitter emitter = SseSupport.openEmitter(emitters::remove);
-        emitters.put(emitter, new Subscription(userId, eventId));
-        send(emitter, userId, eventId);
+        Subscription sub = new Subscription(userId, eventId);
+        emitters.put(emitter, sub);
+        send(emitter, sub);
         return emitter;
     }
 
@@ -60,14 +61,22 @@ public class FC_QueueController implements QueueApi {
         queueService.leaveAll(userId, ClientContext.clientId());
     }
 
-    /** 1초마다 연결된 회원에게 순번 전송, WAITING이 아니면 연결 종료 */
+    /**
+     * 1초마다 돌며, 다음 확인 시각(nextPollMs)이 된 회원에게만 순번 전송. WAITING이 아니면 연결 종료.
+     * 앞쪽 회원은 1초마다, 뒤쪽 회원은 최대 15초마다 받는다 — 상태 확인 요청과 같은 간격.
+     */
     @Scheduled(fixedRate = 1000)
     public void pushStatus() {
-        emitters.forEach((emitter, sub) -> send(emitter, sub.userId(), sub.eventId()));
+        long now = System.currentTimeMillis();
+        emitters.forEach((emitter, sub) -> {
+            if (now >= sub.nextAt) {
+                send(emitter, sub);
+            }
+        });
     }
 
-    private void send(SseEmitter emitter, Long userId, Long eventId) {
-        QueueStatusResponseDto status = queueService.getStatus(userId, eventId);
+    private void send(SseEmitter emitter, Subscription sub) {
+        QueueStatusResponseDto status = queueService.getStatus(sub.userId, sub.eventId);
         if (!SseSupport.send(emitter, "status", status)) {
             emitters.remove(emitter);
             return;
@@ -75,8 +84,20 @@ public class FC_QueueController implements QueueApi {
         if (!status.isWaiting()) {
             emitters.remove(emitter);
             emitter.complete();
+            return;
         }
+        // 다음 전송은 nextPollMs 뒤. 주기 작업이 1초마다 돌아 조금 늦을 수 있으니 0.2초 일찍 잡는다
+        sub.nextAt = System.currentTimeMillis() + (status.nextPollMs() == null ? 1000 : status.nextPollMs()) - 200;
     }
 
-    private record Subscription(Long userId, Long eventId) {}
+    private static final class Subscription {
+        final Long userId;
+        final Long eventId;
+        volatile long nextAt;
+
+        Subscription(Long userId, Long eventId) {
+            this.userId = userId;
+            this.eventId = eventId;
+        }
+    }
 }

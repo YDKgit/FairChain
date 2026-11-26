@@ -8,13 +8,25 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: 'same-origin',
-  });
+export async function api(method, path, body, timeoutMs) {
+  // timeoutMs가 있으면 그 안에 답이 없을 때 요청을 끊는다 (대기열 상태 확인 — 서버가 바쁠 때 요청이 쌓이지 않게)
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: 'same-origin',
+      signal: controller?.signal,
+    });
+  } catch (e) {
+    if (controller?.signal.aborted) throw new ApiError('서버 응답이 늦습니다', 0);
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = null; }
@@ -25,6 +37,8 @@ export async function api(method, path, body) {
 }
 
 export const get = (path) => api('GET', path);
+/** timeoutMs 안에 답이 없으면 실패로 끝나는 GET */
+export const getWithin = (path, timeoutMs) => api('GET', path, undefined, timeoutMs);
 export const post = (path, body) => api('POST', path, body ?? {});
 export const put = (path, body) => api('PUT', path, body ?? {});
 export const del = (path) => api('DELETE', path);

@@ -214,9 +214,20 @@ def login_only(prefix, tag):
 QUEUE_STATE = '''
 // 대기열 응답에서 상태를 읽고, 이 뒤 단계에서 쓸 변수를 처음 값으로 맞춘다
 def state = 'NONE'
-try { state = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).state ?: 'NONE' } catch (e) { }
+def next = null
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    state = body.state ?: 'NONE'
+    next = body.nextPollMs
+} catch (e) { }
 vars.put('qstate', state)
+// 다음 순번 확인까지 쉬는 시간: 실제 화면처럼 서버가 알려 준 간격(nextPollMs — 앞 순번 1초, 뒤 순번 최대 15초)을 따른다.
+// -JpollMs=1000 처럼 주면 그 간격으로 고정한다 (간격을 지키지 않는 매크로 흉내 — 예제서버가 직전 답을 돌려주는지 볼 때)
+def fixed = (props.getProperty('pollMs', '0') as int)
+vars.put('qnext', (fixed > 0 ? fixed : (next ?: 1000)) as String)
 vars.put('qtry', ((vars.get('qtry') ?: '0') as int) + 1 as String)
+// 줄에 선 뒤 지난 초 (-JqueueWait 비교용 — 확인 간격이 순번마다 달라 횟수로는 셀 수 없다)
+vars.put('qwaited', ((System.currentTimeMillis() - ((vars.get('qstart') ?: '0') as long)) / 1000) as long as String)
 // 서버가 계속 실패로 답하면(죽었거나 공연이 없음) 끝없이 기다리지 않도록 연속 실패 횟수를 센다
 // 대기열 진입 요청이 실패한 사람은 줄에 없어서 순번 확인이 200으로 오지만 영영 입장하지 못한다 — 그것도 실패로 센다
 def inLine = prev.isSuccessful() && (state == 'WAITING' || state == 'ADMITTED')
@@ -224,7 +235,8 @@ vars.put('qfail', inLine ? '0' : ((vars.get('qfail') ?: '0') as int) + 1 as Stri
 '''
 
 INIT_VARS = '''
-vars.put('qtry', '0'); vars.put('qfail', '0'); vars.put('qstate', 'NONE'); vars.put('rtry', '0'); vars.put('reserved', 'false')
+vars.put('qtry', '0'); vars.put('qfail', '0'); vars.put('qstate', 'NONE'); vars.put('qnext', '1000'); vars.put('qwaited', '0')
+vars.put('qstart', System.currentTimeMillis() as String); vars.put('rtry', '0'); vars.put('reserved', 'false')
 vars.put('seatId', ''); vars.put('ticketId', ''); vars.put('vtry', '0'); vars.put('vstate', 'NONE')
 '''
 
@@ -240,7 +252,7 @@ if (left > 0) Thread.sleep(left)
 
 
 def enter_queue_and_wait(prefix, rush=None):
-    """대기열에 들어가 입장 허용(ADMITTED)이 될 때까지 1초마다 순번을 확인한다.
+    """대기열에 들어가 입장 허용(ADMITTED)이 될 때까지, 서버가 알려 준 간격(nextPollMs)마다 순번을 확인한다.
     입장해야 재배정 명단에 오르므로 기본은 입장할 때까지 기다린다 (-JqueueWait 초를 주면 그만큼만)"""
     enter_children = [groovy('JSR223PreProcessor', '변수 초기화', INIT_VARS), post('대기열 상태 읽기', QUEUE_STATE)]
     if rush:
@@ -248,8 +260,8 @@ def enter_queue_and_wait(prefix, rush=None):
     gate = [groovy('JSR223Sampler', f'{prefix} 정해진 시각까지 대기 (enterAt)', WAIT_UNTIL)] if rush else []
     return gate + [
         http(f'{prefix} 대기열 진입', 'POST', '/api/queue/${CONCERT}', *enter_children, body='{}'),
-        while_(f'{prefix} 입장 허용까지 대기', '"${qstate}" != "ADMITTED" && ${qfail} < 30 && (${QWAIT} == 0 || ${qtry} < ${QWAIT})',
-               http(f'{prefix} 대기 순번 확인', 'GET', '/api/queue/${CONCERT}/status', wait(1000), post('대기열 상태 읽기', QUEUE_STATE))),
+        while_(f'{prefix} 입장 허용까지 대기', '"${qstate}" != "ADMITTED" && ${qfail} < 30 && (${QWAIT} == 0 || ${qwaited} < ${QWAIT})',
+               http(f'{prefix} 대기 순번 확인', 'GET', '/api/queue/${CONCERT}/status', wait('${qnext}'), post('대기열 상태 읽기', QUEUE_STATE))),
     ]
 
 

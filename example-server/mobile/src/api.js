@@ -37,9 +37,9 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(method, path, body) {
+export async function api(method, path, body, timeoutMs = 10000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(base + path, {
@@ -50,6 +50,7 @@ export async function api(method, path, body) {
       signal: controller.signal,
     });
   } catch {
+    if (controller.signal.aborted) throw new ApiError('서버 응답이 늦습니다', 0);
     throw new ApiError(`서버에 연결할 수 없습니다 (${base}). 같은 와이파이인지, 서버가 켜져 있는지 확인하세요.`, 0);
   } finally {
     clearTimeout(timer);
@@ -64,6 +65,8 @@ export async function api(method, path, body) {
 }
 
 export const get = (path) => api('GET', path);
+/** timeoutMs 안에 답이 없으면 실패로 끝나는 GET (대기열 상태 확인) */
+export const getWithin = (path, timeoutMs) => api('GET', path, undefined, timeoutMs);
 export const post = (path, body) => api('POST', path, body ?? {});
 export const del = (path) => api('DELETE', path);
 
