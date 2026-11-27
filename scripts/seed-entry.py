@@ -7,7 +7,7 @@
 입장은 공연 시작 3시간 전부터 되므로 오늘 공연이어야 게이트에서 허용된다.
 """
 import http.cookiejar, json, sys, time, urllib.request
-EX = "http://localhost:8080"; CON = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+EX = 'http://' + __import__('os').environ.get('EX_HOST', 'localhost') + ':8080'; CON = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 class C:
     def __init__(s): s.o=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     def call(s,m,p,b=None):

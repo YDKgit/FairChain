@@ -8,7 +8,7 @@
 """
 import http.cookiejar, json, sys, time, urllib.request
 
-EX = 'http://localhost:8080'
+EX = 'http://' + __import__('os').environ.get('EX_HOST', 'localhost') + ':8080'      # 예제서버가 다른 PC에 있으면 EX_HOST=그 PC의 IP
 CONCERT = int(sys.argv[1]) if len(sys.argv) > 1 else 2
 ROWS = int(sys.argv[2]) if len(sys.argv) > 2 else 20
 PER_ROW = int(sys.argv[3]) if len(sys.argv) > 3 else 30

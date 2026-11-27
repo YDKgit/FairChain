@@ -8,7 +8,7 @@
 """
 import datetime, http.cookiejar, json, os, pathlib, subprocess, sys, urllib.request
 
-EX = 'http://localhost:8080'
+EX = 'http://' + __import__('os').environ.get('EX_HOST', 'localhost') + ':8080'      # 예제서버가 다른 PC에 있으면 EX_HOST=그 PC의 IP
 ROWS = sys.argv[1] if len(sys.argv) > 1 else '20'
 PER_ROW = sys.argv[2] if len(sys.argv) > 2 else '30'
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))

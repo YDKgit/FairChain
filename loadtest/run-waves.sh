@@ -14,7 +14,7 @@ CONCERT=${CONCERT:-$(python3 loadtest/new-concert.py)} || exit 1
 RAMP=$(printf "%.0f" $(( TOTAL * 1.0 / WAVE * GAP )))
 echo "공연 #$CONCERT: ${WAVE}명씩 ${GAP}초 간격으로 ${TOTAL}명 (약 ${RAMP}초 동안 진입)"
 python3 loadtest/collect.py begin $OUT "run-waves: ${TOTAL}명 · ${WAVE}명씩 ${GAP}초 간격 · 공연 #$CONCERT"
-JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jusers=$TOTAL -JconcertId=$CONCERT -Jseats=600 -JrampUp=$RAMP \
+JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jhttpclient4.time_to_live=3600000 -Jhost=${EX_HOST:-localhost} -JstayMs=${STAY:-0} -JresponseTimeout=${WAIT_MS:-30000} -JconnectTimeout=${CONNECT_MS:-5000} -JverifyMax=${VERIFY:-120} -Jusers=$TOTAL -JconcertId=$CONCERT -Jseats=600 -JrampUp=$RAMP \
   -Jpremade=true -JraceUsers=0 -JmacroUsers=0 -JsyncGroup=$WAVE -Jtag=wave \
   -j $OUT/jmeter.log -l $OUT/all.jtl > $OUT/out.txt 2>&1
 python3 loadtest/summarize.py $OUT/all.jtl

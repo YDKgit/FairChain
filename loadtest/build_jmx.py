@@ -56,8 +56,8 @@ def http_defaults():
         '<elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" '
         'testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp>'
         + sp('HTTPSampler.domain', '${HOST}') + sp('HTTPSampler.port', '${PORT}') + sp('HTTPSampler.protocol', 'http')
-        + sp('HTTPSampler.contentEncoding', 'UTF-8') + sp('HTTPSampler.connect_timeout', '5000')
-        + sp('HTTPSampler.response_timeout', '30000') + '</ConfigTestElement>')
+        + sp('HTTPSampler.contentEncoding', 'UTF-8') + sp('HTTPSampler.connect_timeout', P('connectTimeout', '5000'))
+        + sp('HTTPSampler.response_timeout', P('responseTimeout', '30000')) + '</ConfigTestElement>')
 
 
 def json_header():
@@ -150,6 +150,13 @@ def transaction(name, *children):
 def wait(ms):
     return node(f'<ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="{ms}ms 쉬기" enabled="true">'
                 + sp('ConstantTimer.delay', ms) + '</ConstantTimer>')
+
+
+def pause(name, ms):
+    """요청 없이 그 자리에서 쉰다 (Flow Control Action)"""
+    return node(f'<TestAction guiclass="TestActionGui" testclass="TestAction" testname="{escape(name)}" enabled="true">'
+                '<intProp name="ActionProcessor.action">1</intProp><intProp name="ActionProcessor.target">0</intProp>'
+                + sp('ActionProcessor.duration', ms) + '</TestAction>')
 
 
 def think(base, spread):
@@ -397,8 +404,10 @@ def scenario_a():
                             post('예매 결과', RESERVE_RESULT), body='{"seatId":${seatId},"concertId":${CONCERT}}'))),
             if_('예매 성공', '"${reserved}" == "true"',
                 transaction('A-4 예매 후 블록체인 검증 완료까지',
-                            while_('검증 완료까지 확인 (최대 60초)', '"${vstate}" != "VERIFIED" && ${vtry} < 120',
-                                   http('A-4 내 티켓 확인', 'GET', '/api/tickets/${ticketId}', wait(500), post('검증 상태 읽기', VERIFY_STATE)))))),
+                            while_('검증 완료까지 확인 (최대 60초)', '"${vstate}" != "VERIFIED" && ${vtry} < ${__P(verifyMax,120)}',      # -JverifyMax=0 이면 티켓 확인(노드 검증 조회)을 하지 않는다
+                                   http('A-4 내 티켓 확인', 'GET', '/api/tickets/${ticketId}', wait(500), post('검증 상태 읽기', VERIFY_STATE)))),
+                # 예매를 마친 사람이 바로 사라지지 않고 잠깐 머문다 (-JstayMs, 기본 0)
+                pause('A-5 예매 뒤 머무르기 (-JstayMs)', P('stayMs', '0')))),
         comment='-Jusers 명이 미리 만든 회원으로 -JrampUp 초에 걸쳐 로그인한 뒤 한꺼번에 대기열 진입')
 
 

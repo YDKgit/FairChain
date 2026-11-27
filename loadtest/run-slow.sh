@@ -17,7 +17,7 @@ OFFSET=${OFFSET:-$(( ($(date +%s) / 10 % 80) * 100 ))}
 RAMP=$(printf "%.0f" $(( USERS * GAP )))
 echo "공연 #$CONCERT (${SEATS}석): ${USERS}명이 ${GAP}초 간격으로 들어갑니다 (약 ${RAMP}초 동안)"
 python3 loadtest/collect.py begin $OUT "run-slow: ${USERS}명 · ${GAP}초 간격 · ${SEATS}석 · 공연 #$CONCERT"
-JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jusers=$USERS -JconcertId=$CONCERT -Jseats=$SEATS -JrampUp=$RAMP \
+JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jhttpclient4.time_to_live=3600000 -Jhost=${EX_HOST:-localhost} -JstayMs=${STAY:-0} -JresponseTimeout=${WAIT_MS:-30000} -JconnectTimeout=${CONNECT_MS:-5000} -JverifyMax=${VERIFY:-120} -Jusers=$USERS -JconcertId=$CONCERT -Jseats=$SEATS -JrampUp=$RAMP \
   -Jpremade=true -JraceUsers=0 -JmacroUsers=0 -JsyncGroup=1 -JuserOffset=$OFFSET -Jtag=slow \
   -j $OUT/jmeter.log -l $OUT/all.jtl > $OUT/out.txt 2>&1
 python3 loadtest/summarize.py $OUT/all.jtl

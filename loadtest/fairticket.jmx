@@ -63,8 +63,8 @@
     </TestPlan>
     <hashTree>
       <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP 기본값">
-        <intProp name="HTTPSampler.connect_timeout">5000</intProp>
-        <intProp name="HTTPSampler.response_timeout">30000</intProp>
+        <stringProp name="HTTPSampler.connect_timeout">${__P(connectTimeout,5000)}</stringProp>
+        <stringProp name="HTTPSampler.response_timeout">${__P(responseTimeout,30000)}</stringProp>
         <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
         <stringProp name="HTTPSampler.port">${PORT}</stringProp>
         <stringProp name="HTTPSampler.protocol">http</stringProp>
@@ -715,7 +715,7 @@ if (code == &apos;200&apos; &amp;&amp; r?.success) {
             </TransactionController>
             <hashTree>
               <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="검증 완료까지 확인 (최대 60초)" enabled="true">
-                <stringProp name="WhileController.condition">${__jexl3(&quot;${vstate}&quot; != &quot;VERIFIED&quot; &amp;&amp; ${vtry} &lt; 120,)}</stringProp>
+                <stringProp name="WhileController.condition">${__jexl3(&quot;${vstate}&quot; != &quot;VERIFIED&quot; &amp;&amp; ${vtry} &lt; ${__P(verifyMax,120)},)}</stringProp>
               </WhileController>
               <hashTree>
                 <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="A-4 내 티켓 확인" enabled="true">
@@ -747,6 +747,12 @@ vars.put(&apos;vtry&apos;, ((vars.get(&apos;vtry&apos;) ?: &apos;0&apos;) as int
                 </hashTree>
               </hashTree>
             </hashTree>
+            <TestAction guiclass="TestActionGui" testclass="TestAction" testname="A-5 예매 뒤 머무르기 (-JstayMs)" enabled="true">
+              <intProp name="ActionProcessor.action">1</intProp>
+              <intProp name="ActionProcessor.target">0</intProp>
+              <stringProp name="ActionProcessor.duration">${__P(stayMs,0)}</stringProp>
+            </TestAction>
+            <hashTree/>
           </hashTree>
         </hashTree>
       </hashTree>

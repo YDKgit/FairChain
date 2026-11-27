@@ -7,6 +7,7 @@
 #
 # 서버는 미리 만든 회원과 함께 한 번만 띄워 두면 된다:  EXAMPLE_LOAD_MEMBERS=15000 ./scripts/run-local.sh --mem
 # 돌릴 때마다 600석짜리 공연을 새로 만들어 거기서 돌리므로, 서버를 다시 켜지 않고 몇 번이든 돌릴 수 있다.
+# 노트북 두 대로 나눠 보낼 때: 둘 다 같은 CONCERT · AT 을 주고, 두 번째 노트북은 BASE=5000 처럼 회원 번호 시작을 띄운다
 # 이미 있는 공연에서 돌리려면 CONCERT=2 ./loadtest/run-multi.sh … (그 공연에 빈 좌석이 있어야 한다)
 NAME=$1; PROCS=$2; PER=$3; DELAY=${4:-70}
 cd "${0:a:h}/.."
@@ -19,8 +20,8 @@ if [[ -n $AT ]]; then AT=$(( $(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%Y-%m-%d)
 echo "대기열 진입 예정: $(date -r $((AT / 1000)) +%H:%M:%S)"
 python3 loadtest/collect.py begin $OUT "run-multi: JMeter ${PROCS}개 × ${PER}명 · 공연 #$CONCERT · 진입 $(date -r $((AT / 1000)) +%H:%M:%S)"
 for i in $(seq 1 $PROCS); do
-  JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jusers=$PER -JconcertId=$CONCERT -Jseats=600 -JrampUp=20 \
-    -Jpremade=true -JuserOffset=$(((i-1)*PER)) -JraceUsers=0 -JmacroUsers=0 -Jtag=p$i -JenterAt=$AT \
+  JVM_ARGS="-Xms1g -Xmx3g -Xss256k" jmeter -n -t loadtest/fairticket.jmx -Jhttpclient4.time_to_live=3600000 -Jhost=${EX_HOST:-localhost} -JstayMs=${STAY:-0} -JresponseTimeout=${WAIT_MS:-30000} -JconnectTimeout=${CONNECT_MS:-5000} -JverifyMax=${VERIFY:-120} -Jusers=$PER -JconcertId=$CONCERT -Jseats=600 -JrampUp=20 \
+    -Jpremade=true -JuserOffset=$(( ${BASE:-0} + (i-1)*PER )) -JraceUsers=0 -JmacroUsers=0 -Jtag=p$i -JenterAt=$AT \
     -j $OUT/jmeter$i.log -l $OUT/p$i.jtl > $OUT/out$i.txt 2>&1 &
 done
 wait
