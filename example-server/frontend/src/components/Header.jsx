@@ -19,7 +19,7 @@ export default function Header() {
     let alive = true;
     const load = () => get('/api/reallocation/offers').then((o) => alive && setOfferCount(o.length)).catch(() => {});
     load();
-    const id = setInterval(load, 10000);
+    const id = setInterval(load, 2000);
     return () => { alive = false; clearInterval(id); };
   }, [me]);
 

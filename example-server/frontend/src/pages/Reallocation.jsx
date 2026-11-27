@@ -27,7 +27,7 @@ export default function Reallocation() {
       setStatuses(withStatus.filter((c) => c.realloc && (saleState(c) === 'soldout' || c.realloc.heldCount > 0 || c.realloc.myRank)));
     } catch (e) { setError(e.message); }
   }, []);
-  usePolling(load, 5000, loggedIn);
+  usePolling(load, 2000, loggedIn);
 
   const r = config.reallocation;
   if (error) return <ErrorBox message={error} />;
